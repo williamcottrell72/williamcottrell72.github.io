@@ -191,7 +191,7 @@
 
 
     <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">ratings</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span><span class="n">users</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span><span class="n">sites</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span><span class="n">latent_features</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span>\
-                 <span class="n">dropout</span><span class="o">=</span><span class="mf">.1</span><span class="p">,</span><span class="n">max_iter</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span><span class="n">epochs</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span><span class="n">temperature</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span><span class="n">lr</span><span class="o">=</span><span class="mf">.01</span><span class="p">,</span><span class="n">batch_size</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>\
+                 <span class="n">dropout</span><span class="o">=.</span><span class="mi">1</span><span class="p">,</span><span class="n">max_iter</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span><span class="n">epochs</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span><span class="n">temperature</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span><span class="n">lr</span><span class="o">=.</span><span class="mo">01</span><span class="p">,</span><span class="n">batch_size</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>\
                  <span class="n">losses</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
 
         <span class="nb">super</span><span class="p">(</span><span class="n">recsys</span><span class="p">,</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__init__</span><span class="p">()</span>
@@ -205,8 +205,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="o">=</span><span class="n">temperature</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ratings</span><span class="o">=</span><span class="n">ratings</span>
-        <span class="c1"># self.mask=torch.tensor(np.logical_not(np.isnan(ratings)).astype(int)).type(torch.ByteTensor)
-</span>        <span class="bp">self</span><span class="o">.</span><span class="n">losses</span><span class="o">=</span><span class="bp">None</span>
+        <span class="c"># self.mask=torch.tensor(np.logical_not(np.isnan(ratings)).astype(int)).type(torch.ByteTensor)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">losses</span><span class="o">=</span><span class="bp">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">epochs</span><span class="o">=</span><span class="n">epochs</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">linear1</span><span class="o">=</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">sites</span><span class="p">,</span><span class="n">latent_features</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">linear2</span><span class="o">=</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">latent_features</span><span class="p">,</span><span class="n">latent_features</span><span class="p">)</span>
@@ -255,7 +255,7 @@
             <span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">(</span><span class="n">retain_graph</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
             <span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">losses</span><span class="o">=</span><span class="n">losses</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">lr</span><span class="o">=</span><span class="mf">.7</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">lr</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lr</span><span class="o">=.</span><span class="mi">7</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">lr</span>
     <span class="n">f</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 </code></pre></div></div>
 
@@ -306,7 +306,7 @@
 
       <footer class="footer">
         <small>
-          &copy; <time datetime="2018-11-24T00:11:10-08:00">2018</time>. All rights reserved.
+          &copy; <time datetime="2018-11-24T01:03:54-08:00">2018</time>. All rights reserved.
         </small>
       </footer>
     </div>

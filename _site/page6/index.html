@@ -76,7 +76,7 @@ Our goal is to do this for a few different keywords and then form an aggregate s
     <span class="n">url</span> <span class="o">=</span> <span class="s">"http://web.mta.info/developers/data/nyct/turnstile/turnstile_{}.txt"</span>
     <span class="n">dfs</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">week_num</span> <span class="ow">in</span> <span class="n">week_nums</span><span class="p">:</span>
-        <span class="n">file_url</span> <span class="o">=</span> <span class="n">url</span><span class="o">.</span><span class="nb">format</span><span class="p">(</span><span class="n">week_num</span><span class="p">)</span>
+        <span class="n">file_url</span> <span class="o">=</span> <span class="n">url</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">week_num</span><span class="p">)</span>
         <span class="n">dfs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">file_url</span><span class="p">))</span>
     <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">dfs</span><span class="p">)</span>
 </code></pre></div></div>
@@ -136,7 +136,7 @@ Our goal is to do this for a few different keywords and then form an aggregate s
 
       <footer class="footer">
         <small>
-          &copy; <time datetime="2018-11-24T00:11:10-08:00">2018</time>. All rights reserved.
+          &copy; <time datetime="2018-11-24T01:03:54-08:00">2018</time>. All rights reserved.
         </small>
       </footer>
     </div>
