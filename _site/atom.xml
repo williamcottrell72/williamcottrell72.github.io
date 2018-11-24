@@ -4,7 +4,7 @@
  <title>Billy Cottrell</title>
  <link href="http://localhost:4000/atom.xml" rel="self"/>
  <link href="http://localhost:4000/"/>
- <updated>2018-11-24T01:03:54-08:00</updated>
+ <updated>2018-11-24T01:22:48-08:00</updated>
  <id>http://localhost:4000</id>
  <author>
    <name>William Cottrell</name>
@@ -658,7 +658,7 @@ Our goal is to do this for a few different keywords and then form an aggregate s
   &lt;li&gt;&lt;a href=&quot;http://enfield.getpoole.com&quot;&gt;Enfield&lt;/a&gt;&lt;/li&gt;
 &lt;/ul&gt;
 
-&lt;p&gt;Learn more and contribute on &lt;a href=&quot;https://github.com/williamcottrell72&quot;&gt;GitHub&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;Learn more and contribute on &lt;a href=&quot;&quot;&gt;GitHub&lt;/a&gt;.&lt;/p&gt;
 
 &lt;h3 id=&quot;whats-included&quot;&gt;What’s included&lt;/h3&gt;
 
@@ -681,7 +681,7 @@ Our goal is to do this for a few different keywords and then form an aggregate s
 
 &lt;h3 id=&quot;download&quot;&gt;Download&lt;/h3&gt;
 
-&lt;p&gt;These themes are developed on and hosted with GitHub. Head to the &lt;a href=&quot;https://github.com/williamcottrell72&quot;&gt;GitHub repository&lt;/a&gt; for downloads, bug reports, and features requests.&lt;/p&gt;
+&lt;p&gt;These themes are developed on and hosted with GitHub. Head to the &lt;a href=&quot;&quot;&gt;GitHub repository&lt;/a&gt; for downloads, bug reports, and features requests.&lt;/p&gt;
 
 &lt;p&gt;Thanks!&lt;/p&gt;
 </content>

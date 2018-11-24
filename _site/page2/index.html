@@ -46,61 +46,355 @@
   
   <article class="post">
     <h1 class="post-title">
-      <a href="/2018/11/21/GCloud+Tensorboard/">
-        Google CLoud Computing with Tensorboard
+      <a href="/2018/10/26/TravelApp_1/">
+        TravelApp I - Recommender Systems
       </a>
     </h1>
 
-    <time datetime="2018-11-21T00:00:00-08:00" class="post-date">21 Nov 2018</time>
+    <time datetime="2018-10-26T00:00:00-07:00" class="post-date">26 Oct 2018</time>
 
-    <p>In today’s post I’m going to describe how to set up Tensorboard on google cloud so that you can monitor your deep learning progress with ease.  For the neophytes reading this, Tensorboard is an application that comes with Tensorflow and it allows you to visualize key metrics that are logged while the training is in progress.  The result is served on port 6006 of the ‘local’ browser and looks something like the picture above.
-<!--
-<img src="https://drive.google.com/uc?id=1gPpKJsJA93PPs-etLmTmhoTo1UyZTSy6" alt="Hope this works!"> --></p>
+    <p>In this series of posts I will try and describe some lessons learned while developing a travel app for my final project at the Metis Data Science bootcamp.  This work was done in collaboration with Vivien Tsao - a fellow student - and I will make no attempt to distinguish our respective contributions.</p>
 
-<p>In this example, the cross-entropy is displayed.  We can, however, collect and display any statistic from the learning process we want, as well as the graph of the network.</p>
+<p>The goal of TravelApp<sup id="fnref:fn-sample_footnote"><a href="#fn:fn-sample_footnote" class="footnote">1</a></sup> is to provide highly personalized travel recommendations for travel itinerary, restaurants, attractions, and local guides.   The basic idea is that the user will provide their travel times, budget, and some ‘preferences’.  We will then generate some recommendations, e.g., “Go check out Alcatraz in the morning, then take a cable car to SF MOMA, finally, spend the evening at the Gregangelo. “</p>
 
-<p>This is all well and good, but there are a couple of challenges to be met in going from the ‘vanilla’ instructions on the website to what I actually wanted to do.  First off, I wanted to run the training on google cloud so that my model is working even while my computer (and me) are sleeping.  Second, I’m not using Tensorflow directly, I’m using Pytorch and Tensorflow is merely serving as a backend.  Thus, some of the instructions for setting things up need to be adjusted.</p>
-
-<p>For the second problem, Pytorch vs Tensorflow, there is an off the shelf solution: <a href="https://pypi.org/project/tensorboardX/">TensorboardX</a> or <a href="https://github.com/lanpa/tensorboardX"> here</a> for the source.  This very straight-forward to get the hang of.  Here I’ll just give a very simple example of the basic usage.  The procedure is as follows:</p>
+<p>Many components are needed in order for TravelApp to work.  For starters we will need:</p>
 
 <ol>
-  <li><code class="highlighter-rouge">pip</code> install TensorboardX.</li>
-  <li>In your (Python) header include <code class="highlighter-rouge">form tensorboardX import SummaryWriter</code></li>
-  <li>Before your training loop, declare a summary writer via:
- <code class="highlighter-rouge">writer=SummaryWriter()</code></li>
-  <li>For any variable, <code class="highlighter-rouge">v</code> which you’d like to log during training, include:<br />
-<code class="highlighter-rouge">writer.add_scalar('logfile',v,i)</code>, where ‘logfile’ is the path to the log file that you want to put this information in.  (No harm in literally just using ‘logfile’!) and ‘i’ is the iteration that we are on in the training run.  So, you can think of <code class="highlighter-rouge">i</code> and <code class="highlighter-rouge">v</code> as being like the <code class="highlighter-rouge">x</code> and <code class="highlighter-rouge">y</code> coordinates of a scatter plot that we are going to make.</li>
-  <li>It’s good practice to close the writer after the training loop: <code class="highlighter-rouge">writer.close()</code></li>
-  <li>Now, start training!  We will immediately start generating data that gets dumped to the logfile.</li>
-  <li>Now, in the terminal, type:
-<code class="highlighter-rouge">tensorboard --logdir path</code>, where path leads to the directory where <code class="highlighter-rouge">logfile</code> lives.</li>
-  <li>Great, we have launched the tensorboard!  Where does it live?  Well, this is essentially a web app, so it lives in your browser.  By default the images are served to port 6006.  So, in the browser, just go to <code class="highlighter-rouge">localhost:6006</code> and see!</li>
+  <li>A routine which converts user preferences into scored lists of attractions, restaurants, and guides. This is our Recommender System, or RECSYS.</li>
+  <li>A routine which takes scored lists of attractions, restaurants and guides and produces an ‘optimal’ itinerary.  This component will be referred to as the Itinerary Generator, or, ITINGEN for short.</li>
 </ol>
 
-<p>So far so good - this is a standard Tensorboard workflow.  However, it is a little more tricky when we want to do the training on a cloud platform like Google Cloud.  There, we can indeed follow all of these steps, but the result will just be displayed for a browser listening to the <code class="highlighter-rouge">localhost</code> in Google’s compute center!  How do we get access to this?</p>
+<p>Here, I will first describe some lessons learned in developing the RECSYS.  Subsequent posts will cover other aspects of this project.  As this is clearly an ambitious and open-ended endeavor, there will likely be many, many more posts coming.  Feel free to join me on this journey and let me know what I’m doing wrong or right along the way!</p>
 
-<p>A similar problem already occurs if we want to have <em>any</em> interactive GUI environment while working on the cloud.  Sure, we can easily run scripts on the cloud, but how do we see what is going on?  The answer: <strong>port mapping</strong>.  We need to map the output of the <code class="highlighter-rouge">localhost</code> on Google’s machine to the local host on our machine.  Assuming we already have the google compute instance set up and running and the gcloud cli installed, the magic incantation to do port mapping is:</p>
+<h2 id="recommender-systems">Recommender Systems</h2>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">gcloud</span> <span class="n">compute</span> <span class="n">ssh</span> <span class="n">instance_name</span> \
-  <span class="o">--</span><span class="n">project</span> <span class="n">project_id</span> \
-  <span class="o">--</span><span class="n">zone</span> <span class="n">zone_name</span> \
-  <span class="o">--</span> <span class="o">-</span><span class="n">NL</span> <span class="mi">4321</span><span class="p">:</span><span class="n">localhost</span><span class="p">:</span><span class="mi">6006</span>
+<p>The basic idea of a recommender system is that one is given partial data, e.g., how much so-and-so like such-and-such movie, and then one is expected to guess the full set of data, e.g., how much everyone likes every movie.  In our particular case, we have a set of rankings of various attractions provided by users of Trip Adviser.  The data looks something like:</p>
+
+<table>
+    <tr>
+      <th>Name</th>
+      <th>Golden Gate Bridge</th>
+      <th>Alcatraz</th>
+      <th> Gregangelo </th>
+      <th> SF MoMA </th>
+    </tr>
+    <tr>
+      <td>Alice</td>
+      <td>5</td>
+      <td>4</td>
+      <td> <font color="red">?</font> </td>
+      <td> 2 </td>
+    </tr>
+    <tr>
+      <td>Bob</td>
+      <td>4</td>
+      <td><font color="red">?</font></td>
+      <td> 0 </td>
+      <td> <font color="red">?</font> </td>
+    </tr>
+    <tr>
+      <td>Charlie</td>
+      <td>0</td>
+      <td>2</td>
+      <td> 5</td>
+      <td> 4</td>
+    </tr>
+    <tr>
+      <td> Tom </td>
+      <td> <font color="red">?</font> </td>
+      <td> 2 </td>
+      <td> 4 </td>
+      <td> 5 </td>
+    </tr>
+</table>
+
+<p>…and our goal is to produce something like the following:</p>
+
+<table>
+    <tr>
+      <th>Name</th>
+      <th>Golden Gate Bridge</th>
+      <th>Alcatraz</th>
+      <th> Gregangelo </th>
+      <th> SF MoMA </th>
+    </tr>
+    <tr>
+      <td>Alice</td>
+      <td>5</td>
+      <td>4</td>
+      <td> <font color="blue">1</font> </td>
+      <td> 2 </td>
+    </tr>
+    <tr>
+      <td>Bob</td>
+      <td>4</td>
+      <td><font color="blue">4</font></td>
+      <td> 0 </td>
+      <td> <font color="blue">1</font> </td>
+    </tr>
+    <tr>
+      <td>Charlie</td>
+      <td>0</td>
+      <td>2</td>
+      <td> 5</td>
+      <td> 4</td>
+    </tr>
+    <tr>
+      <td> Tom </td>
+      <td> <font color="blue">1</font> </td>
+      <td> 2 </td>
+      <td> 4 </td>
+      <td> 5 </td>
+    </tr>
+</table>
+
+<p>Naively, what we are asked to do makes no sense.  The missing values could a-priori be anything and there is no direct way to derive the correct value to fill in.</p>
+
+<p>However, this should not deter us.   The situation here is no different than what is often encountered in science.  Given some data, we need to develop a model that describes the data.  If the model is not too ad-hoc then we might expect it to generalize well and thus be able to describe new, yet to be seen data.</p>
+
+<p>For the toy example above, we one might suggest the following ‘model’ by looking at the first table.  First, note that for the examples displayed, ‘Golden Gate Bridge’ scores and ‘Alcatraz Scores’ seem to vary together.  Likewise, ‘Gregangelo’ and “SF MoMA” seem to vary together as well.  With no further domain knowledge, one might suggest that there is some hidden feature, “<strong>N</strong>”<sup id="fnref:fn-footnote2"><a href="#fn:fn-footnote2" class="footnote">2</a></sup>, which is positive for the first two attractions and negative for the second two attractions.  Moreover, perhaps there are two kinds of people, those that like the <strong>N</strong> quality, and those who do not.  Thus, what we might do is use the given data to assign a value of <strong>N</strong> to each attraction, and then another number, <strong>A</strong>, for each user, which tells us how much they appreciate the quality <strong>N</strong>.  We would then be led to a model like:</p>
+
+<p><img src="https://latex.codecogs.com/svg.latex?{\color{white}\Large&space;\text{Score}_{u a} = N_{a} A_{u}+b_{u}}" title="LinearAnsatz1" /></p>
+
+<p>Here, <strong>N</strong><sub>a</sub> is the value of <strong>N</strong> for attraction <strong>a</strong>, <strong>A</strong><sub>u</sub> quantifies how much the given user appreciates the feature <strong>N</strong>, and <strong>b</strong><sub>u</sub> is an offset.</p>
+
+<p>Notice what we’ve accomplished.  The original table consisted 16=4x4 degrees of freedom, of which 12 were known.  In contrast, the our linear model contains 12 = 4 +4+4 (from <strong>N</strong><sub>a</sub>, <strong>A</strong><sub>u</sub> and <strong>b</strong><sub>u</sub>) degrees of freedom.  Thus, we have just enough information to fit the the supplied data and make predictions for the unknowns.</p>
+
+<p>In real problems, things are not so simple.  Typically, we can expect:</p>
+
+<ol>
+  <li>A large, sparse table with only a small fraction of entries filled.</li>
+  <li>A larger number of hidden features to play a role.</li>
+  <li>No exact fit of the data for any ‘reasonable’ model.</li>
+  <li>Non-linear relationship between score and hidden features.</li>
+</ol>
+
+<p>So, how do we go about making predictions in a principled way?  Maybe we could try something like:</p>
+
+<p><img src="https://latex.codecogs.com/svg.latex?{\color{white}\Large&space;\text{Score}_{u a} =\sum_{k} N_{ka} A_{ku}+b_{u}}" title="LinearAnsatz2" /></p>
+
+<p>Here, <strong>k</strong> labels the set of ‘hidden features’ and, for instance, <strong>N</strong><sub>ku</sub> labels how much of feature <strong>k</strong> is in attraction <strong>a</strong>.  Our goal is now to determine <strong>N</strong><sub>ku</sub>, <strong>A</strong><sub>ku</sub>, and <strong>b</strong><sub>u</sub> from the data given.  If there are <em>K</em> hidden features, <em>U</em> users, and <em>S</em> sites, then our ansatz has a total of <em>K(S+U) + U</em> variables, which, with appropriate choice of <em>K</em> is much less than the</p>
+
+<p>This ansatz is a good start, but it fails to account for the fact that the ratings are capped at a particular value (5, for Trip Adviser).  We should thus, at least, pass the result through a logistic function.  In other words, we really want something like:</p>
+
+<p><img src="https://latex.codecogs.com/svg.latex?\Large&space;{\color{white}\text{Score}_{u a} \sim \sigma\left(\sum_{k} N_{ka} A_{ku}+b_{u}\right)}" title="SigmaLinearAnsatz" /></p>
+
+<p>This is OK but we can do better.  We should also allow for some non-linear interactions in our ansatz. This will allow for a richer structure of preferences and thus model a more diverse set of users.  Cue the neural network!   A neural network is a simple generalization of the model above. Rather than taking the <strong>N</strong><sub>ku</sub> to represent the raw values of feature <strong>k</strong>, we can allow the <strong>N</strong><sub>ku</sub> to be the output of another <strong><em>layer</em></strong> in the network.  In equations, this is:</p>
+
+<p><img src="https://latex.codecogs.com/svg.latex?\Large&space;{\color{white} N_{k a} \rightarrow \sigma\left(\sum_{\tilde{k}} \tilde{N}_{\tilde{k}k} \tilde{A}_{\tilde{k}a}+\tilde{b}_{a}\right)}" title="AddLayer" /></p>
+
+<p>We are free to iteratively add as many layers as we would like by replacing <strong>N</strong> with a self-similar equation as we did above.  This will give a general feed-forward neural network and we can use our training set and standard machine learning methods to determine the <strong>A</strong> and <strong>b</strong> parameters.</p>
+
+<p>Implementing this in PyTorch is not too difficult. Let’s first define a <strong><em>recsys</em></strong> class that will contain some useful methods.  We’ll keep things simple and just add one extra hidden layer.  I’ll also add a layer called ‘Dropout’ which does exactly what it says - it ignore a random sample of neurons in each training run.  This technique has been demonstrated to prevent over-fitting (See <a href="http://jmlr.org/papers/volume15/srivastava14a.old/srivastava14a.pdf">here</a>.)</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">recsys</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">ratings</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span><span class="n">users</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span><span class="n">sites</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span><span class="n">latent_features</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span>\
+                 <span class="n">dropout</span><span class="o">=.</span><span class="mi">1</span><span class="p">,</span><span class="n">max_iter</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span><span class="n">epochs</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span><span class="n">temperature</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span><span class="n">lr</span><span class="o">=.</span><span class="mo">01</span><span class="p">,</span><span class="n">batch_size</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>\
+                 <span class="n">losses</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+
+        <span class="nb">super</span><span class="p">(</span><span class="n">recsys</span><span class="p">,</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__init__</span><span class="p">()</span>
+
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">users</span><span class="o">=</span><span class="n">users</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sites</span><span class="o">=</span><span class="n">sites</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dropout</span><span class="o">=</span><span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">p</span><span class="o">=</span><span class="n">dropout</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_iter</span><span class="o">=</span><span class="n">max_iter</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lr</span><span class="o">=</span><span class="n">lr</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="o">=</span><span class="n">temperature</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ratings</span><span class="o">=</span><span class="n">ratings</span>
+        <span class="c"># self.mask=torch.tensor(np.logical_not(np.isnan(ratings)).astype(int)).type(torch.ByteTensor)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">losses</span><span class="o">=</span><span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">epochs</span><span class="o">=</span><span class="n">epochs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear1</span><span class="o">=</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">sites</span><span class="p">,</span><span class="n">latent_features</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear2</span><span class="o">=</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">latent_features</span><span class="p">,</span><span class="n">latent_features</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear3</span><span class="o">=</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">latent_features</span><span class="p">,</span><span class="n">sites</span><span class="p">)</span>
+
 </code></pre></div></div>
-<p>(See <a href="https://cloud.google.com/solutions/connecting-securely">here</a> for more details.) After running this, we can now just go to our browser and enter the url: <code class="highlighter-rouge">localhost:4321</code> viola! Tensorboard let’s the tensors flow straight to us!  Here is a actual screenshot from my first two (not very succesful) runs. (Note that we need to change the name of the logfile between runs in order to save more than one run):</p>
+<p>Here, <code class="highlighter-rouge">nn.Linear(N,M)</code> is a general linear map from an array of dimension <strong><em>N</em></strong> to one of dimension <strong><em>M</em></strong>.</p>
 
-<p><img src="https://drive.google.com/uc?id=1LQ_rl7UTwyVE91XXStlH9Obl-Tsp1GgT" alt="tb2" /></p>
+<p>So far we’ve just defined the variables we need in the network.  Now, we should string them together.  In PyTorch, this is accomplished with a particular function called <code class="highlighter-rouge">forward</code>.  We thus need something like:</p>
 
-<p>Again, the port mapping technique is not specific to Tensorboard and is useful for any GUI we want to use on the cloud.  For instance, suppose we are running <a href="http://zeppelin.apache.org/">Zeppelin</a> (highly recommended) on google cloud.  The canonical port is <code class="highlighter-rouge">8080</code>, so we just need to run:</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">gcloud</span> <span class="n">compute</span> <span class="n">ssh</span> <span class="n">instance_name</span> \
-  <span class="o">--</span><span class="n">project</span> <span class="n">project_id</span> \
-  <span class="o">--</span><span class="n">zone</span> <span class="n">zone_name</span> \
-  <span class="o">--</span> <span class="o">-</span><span class="n">NL</span> <span class="mi">1111</span><span class="p">:</span><span class="n">localhost</span><span class="p">:</span><span class="mi">6060</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">x</span><span class="p">):</span>
+    <span class="n">x</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">linear1</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="nb">float</span><span class="p">())</span>
+    <span class="n">x</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">tanh</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="n">x</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">linear2</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="nb">float</span><span class="p">())</span>
+    <span class="n">x</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dropout</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="nb">float</span><span class="p">())</span>
+    <span class="n">x</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">tanh</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="n">x</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">linear3</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="nb">float</span><span class="p">())</span>
+    <span class="k">return</span> <span class="n">x</span>
 </code></pre></div></div>
 
-<p>Of course, we also need to pick an unoccupied port for our local browser!</p>
+<p>The notation is hopefully self-explanatory.  A Torch tensor, <code class="highlighter-rouge">x</code> goes in, gets processed throught the various layers, and then a new tensor comes out.</p>
 
-<p>Now we are all set!  You can run a massive training run on the cloud all week, check in on it’s progress, and not worry about having to babysit your computer :) Hope this was informative.  Now, I’m going to get back to trying to figure out why my training curves are so flat!</p>
+<p>Finally, we should train our model.  As with Tensorflow, PyTorch supports a back-propogation method, <code class="highlighter-rouge">backward</code> and we merely need to call this function on our loss function <sup id="fnref:fn-footnote3"><a href="#fn:fn-footnote3" class="footnote">3</a></sup>.  Crudely speaking, this operation determines the infinitesimal dependence of the loss function on all the weights showing up in the network.  After calling <code class="highlighter-rouge">backward</code>, we can then do <code class="highlighter-rouge">optimizer.step()</code> in order to take one step down the loss function.  The optimizer chosen below is <a href="https://arxiv.org/abs/1412.6980">Adam</a>.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">ratings</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+
+
+    <span class="n">f</span><span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="s">'raw_data/losses'</span><span class="p">,</span><span class="s">'w+'</span><span class="p">)</span>
+
+    <span class="n">losses</span><span class="o">=</span><span class="p">[]</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">epochs</span><span class="o">+</span><span class="mi">1</span><span class="p">):</span>
+
+        <span class="n">optimizer</span> <span class="o">=</span> <span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span><span class="n">lr</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">lr</span><span class="o">/</span><span class="n">i</span><span class="p">)</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">f</span><span class="s">'Epoch {i}'</span><span class="p">)</span>
+
+        <span class="n">sample_indices</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">ratings</span><span class="p">)),</span><span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span><span class="p">,</span><span class="n">replace</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+        <span class="n">sample</span><span class="o">=</span><span class="n">ratings</span><span class="p">[</span><span class="n">sample_indices</span><span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">max_iter</span><span class="p">):</span>
+            <span class="n">optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span><span class="n">sample</span><span class="p">)</span>
+            <span class="n">loss</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">custom_loss</span><span class="p">(</span><span class="n">out</span><span class="p">,</span><span class="n">sample</span><span class="p">)</span>
+            <span class="n">losses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">loss</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()))</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">loss</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">())</span><span class="o">+</span><span class="s">','</span><span class="p">)</span>
+            <span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">(</span><span class="n">retain_graph</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+            <span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">losses</span><span class="o">=</span><span class="n">losses</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lr</span><span class="o">=.</span><span class="mi">7</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">lr</span>
+    <span class="n">f</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</code></pre></div></div>
+
+<p>A couple of notes about this code.  Notice that there are two <code class="highlighter-rouge">for</code> loops.  The outer loop is known as an <code class="highlighter-rouge">epoch</code>.  For each epoch we select a new batch of training data randomly.  The inner loop is merely going down the slope for a given batch of data.  Using two loops in this manner allows the network to see all of the data and helps fight against over-fitting.</p>
+
+<p>And that’s about it for creating a crude recommendation system!  Note that we have logged the losses for later inspection.  The loss function for a typical training run ends up looking like this:</p>
+
+<p><img src="https://drive.google.com/uc?id=1coOdHbtKMSbJK6xTmcI_IjaxUlylsBNF" /></p>
+
+<p>The large increases represent new batches.  What this shows is a rapid <code class="highlighter-rouge">learning</code> occurring within each batch, but this is largely illusory since the loss function increases again when new data is seen.  What we should really be tracking is the beginning of each batch, which acts like a test set.  Focusing on this we do see slow but steady progress.</p>
+
+<p>In order to use the now trained model, we simply use:</p>
+
+<p><code class="highlighter-rouge">recsys(new_rating)</code></p>
+
+<p>This will produce a vector of size <code class="highlighter-rouge">sites</code> representing the rankings.</p>
+
+<p>Next up, we’ll discuss a few simple changes which will dramatically improve this model.  We’ll also address the <code class="highlighter-rouge">cold start problem</code>.  How do we make predictions on Day 1 without already having a massive dataset?</p>
+
+<div class="footnotes">
+  <ol>
+    <li id="fn:fn-sample_footnote">
+      <p>Yes, the name could use some work. <a href="#fnref:fn-sample_footnote" class="reversefootnote">&#8617;</a></p>
+    </li>
+    <li id="fn:fn-footnote2">
+      <p>With domain knowledge, we could say that <strong>N</strong> secretely stands for Nature. <a href="#fnref:fn-footnote2" class="reversefootnote">&#8617;</a></p>
+    </li>
+    <li id="fn:fn-footnote3">
+      <p>This may either be a built in or custom loss function. <a href="#fnref:fn-footnote3" class="reversefootnote">&#8617;</a></p>
+    </li>
+  </ol>
+</div>
+
+  </article>
+  
+  <article class="post">
+    <h1 class="post-title">
+      <a href="/2018/07/26/MVP/">
+        MVP Summary
+      </a>
+    </h1>
+
+    <time datetime="2018-07-26T00:00:00-07:00" class="post-date">26 Jul 2018</time>
+
+    <h2 id="domain">Domain</h2>
+
+<p>I will be attemptig to calssify Kickstarter projects as successful or failed based on other features of the project.  I have visited the Kickstarter website and am relatively familiar it.  More generally, this project could be viewed as a baby step towards understanding when a business/project is likely to be succesful.</p>
+
+<h2 id="data">Data</h2>
+
+<p>The data I have so far was found on Kaggle.  I also plan to look into other data sources. The dataset of (completed) projects consists of ~45K rows with the following variables</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Variable</th>
+      <th>Type</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Project Id</td>
+      <td>Int</td>
+    </tr>
+    <tr>
+      <td>Name</td>
+      <td>String</td>
+    </tr>
+    <tr>
+      <td>url</td>
+      <td>String</td>
+    </tr>
+    <tr>
+      <td>Category</td>
+      <td>String</td>
+    </tr>
+    <tr>
+      <td>Subcategory</td>
+      <td>String</td>
+    </tr>
+    <tr>
+      <td>Location</td>
+      <td>String</td>
+    </tr>
+    <tr>
+      <td>Status</td>
+      <td>String</td>
+    </tr>
+    <tr>
+      <td>Goal</td>
+      <td>Float</td>
+    </tr>
+    <tr>
+      <td>Pledged</td>
+      <td>Float</td>
+    </tr>
+    <tr>
+      <td>Funded Percentage</td>
+      <td>Float</td>
+    </tr>
+    <tr>
+      <td>Backers</td>
+      <td>Int</td>
+    </tr>
+    <tr>
+      <td>Funded Date</td>
+      <td>datetime</td>
+    </tr>
+    <tr>
+      <td>Levels</td>
+      <td>Int</td>
+    </tr>
+    <tr>
+      <td>Reward Levels</td>
+      <td>String</td>
+    </tr>
+    <tr>
+      <td>Updates</td>
+      <td>Int</td>
+    </tr>
+    <tr>
+      <td>Comments</td>
+      <td>Int</td>
+    </tr>
+    <tr>
+      <td>Duration</td>
+      <td>Int</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="known-unknowns">Known Unknowns</h2>
+
+<p>Many important aspects of the project are not available from the dataset.  These include</p>
+
+<p>1.) Competence / knowledge of project organizers.
+2.) External advertising budget.</p>
+
+<p>There is also data that is available but may be difficult to utilize.  For example, the kickstarter website has verbal descriptions of the data, but profiting from this will require a substantial amount of NLP.  In principle, I could try to utilize this.</p>
 
   </article>
   
@@ -119,7 +413,7 @@
 
       <footer class="footer">
         <small>
-          &copy; <time datetime="2018-11-24T01:03:54-08:00">2018</time>. All rights reserved.
+          &copy; <time datetime="2018-11-24T01:22:48-08:00">2018</time>. All rights reserved.
         </small>
       </footer>
     </div>

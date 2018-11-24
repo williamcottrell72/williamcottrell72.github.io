@@ -5,7 +5,7 @@ permalink:           pretty
 title:               Billy Cottrell
 tagline:             A Moderately OK Datascience Blog
 url:                 http://williamcottrell72.github.io/
-paginate:            1
+paginate:            2
 baseurl:             ""
 
 # Assets
@@ -26,6 +26,7 @@ version:             2.0.0
 github:
   repo:              https://github.com/williamcottrell72
 
+github: [metadata]
 
 pages_list:
   About: '/about'
