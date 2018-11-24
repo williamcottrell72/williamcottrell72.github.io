@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>
+    
+      Billy Cottrell &middot; A Moderately OK Datascience Blog
+    
+  </title>
+
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="apple-touch-icon-precomposed" sizes="144x144" href="/public/apple-touch-icon-precomposed.png">
+  <link rel="shortcut icon" href="/public/favicon.ico">
+  <link rel="alternate" type="application/atom+xml" title="Billy Cottrell" href="/atom.xml">
+</head>
+
+
+  <body>
+
+    <div class="container content">
+      <header class="masthead">
+        <h3 class="masthead-title">
+          <a href="/" title="Home">Billy Cottrell</a>
+          <small>A Moderately OK Datascience Blog</small>
+        </h3>
+      </header>
+
+      <main>
+        <div class="posts">
+  
+  <article class="post">
+    <h1 class="post-title">
+      <a href="/2018/11/21/GCloud+Tensorboard/">
+        Google CLoud Computing with Tensorboard
+      </a>
+    </h1>
+
+    <time datetime="2018-11-21T00:00:00-08:00" class="post-date">21 Nov 2018</time>
+
+    <p>In today’s post I’m going to describe how to set up Tensorboard on google cloud so that you can monitor your deep learning progress with ease.  For the neophytes reading this, Tensorboard is an application that comes with Tensorflow and it allows you to visualize key metrics that are logged while the training is in progress.  The result is served on port 6006 of the ‘local’ browser and looks something like the picture above.
+<!--
+<img src="https://drive.google.com/uc?id=1gPpKJsJA93PPs-etLmTmhoTo1UyZTSy6" alt="Hope this works!"> --></p>
+
+<p>In this example, the cross-entropy is displayed.  We can, however, collect and display any statistic from the learning process we want, as well as the graph of the network.</p>
+
+<p>This is all well and good, but there are a couple of challenges to be met in going from the ‘vanilla’ instructions on the website to what I actually wanted to do.  First off, I wanted to run the training on google cloud so that my model is working even while my computer (and me) are sleeping.  Second, I’m not using Tensorflow directly, I’m using Pytorch and Tensorflow is merely serving as a backend.  Thus, some of the instructions for setting things up need to be adjusted.</p>
+
+<p>For the second problem, Pytorch vs Tensorflow, there is an off the shelf solution: <a href="https://pypi.org/project/tensorboardX/">TensorboardX</a> or <a href="https://github.com/lanpa/tensorboardX"> here</a> for the source.  This very straight-forward to get the hang of.  Here I’ll just give a very simple example of the basic usage.  The procedure is as follows:</p>
+
+<ol>
+  <li><code class="highlighter-rouge">pip</code> install TensorboardX.</li>
+  <li>In your (Python) header include <code class="highlighter-rouge">form tensorboardX import SummaryWriter</code></li>
+  <li>Before your training loop, declare a summary writer via:
+ <code class="highlighter-rouge">writer=SummaryWriter()</code></li>
+  <li>For any variable, <code class="highlighter-rouge">v</code> which you’d like to log during training, include:<br />
+<code class="highlighter-rouge">writer.add_scalar('logfile',v,i)</code>, where ‘logfile’ is the path to the log file that you want to put this information in.  (No harm in literally just using ‘logfile’!) and ‘i’ is the iteration that we are on in the training run.  So, you can think of <code class="highlighter-rouge">i</code> and <code class="highlighter-rouge">v</code> as being like the <code class="highlighter-rouge">x</code> and <code class="highlighter-rouge">y</code> coordinates of a scatter plot that we are going to make.</li>
+  <li>It’s good practice to close the writer after the training loop: <code class="highlighter-rouge">writer.close()</code></li>
+  <li>Now, start training!  We will immediately start generating data that gets dumped to the logfile.</li>
+  <li>Now, in the terminal, type:
+<code class="highlighter-rouge">tensorboard --logdir path</code>, where path leads to the directory where <code class="highlighter-rouge">logfile</code> lives.</li>
+  <li>Great, we have launched the tensorboard!  Where does it live?  Well, this is essentially a web app, so it lives in your browser.  By default the images are served to port 6006.  So, in the browser, just go to <code class="highlighter-rouge">localhost:6006</code> and see!</li>
+</ol>
+
+<p>So far so good - this is a standard Tensorboard workflow.  However, it is a little more tricky when we want to do the training on a cloud platform like Google Cloud.  There, we can indeed follow all of these steps, but the result will just be displayed for a browser listening to the <code class="highlighter-rouge">localhost</code> in Google’s compute center!  How do we get access to this?</p>
+
+<p>A similar problem already occurs if we want to have <em>any</em> interactive GUI environment while working on the cloud.  Sure, we can easily run scripts on the cloud, but how do we see what is going on?  The answer: <strong>port mapping</strong>.  We need to map the output of the <code class="highlighter-rouge">localhost</code> on Google’s machine to the local host on our machine.  Assuming we already have the google compute instance set up and running and the gcloud cli installed, the magic incantation to do port mapping is:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">gcloud</span> <span class="n">compute</span> <span class="n">ssh</span> <span class="n">instance_name</span> \
+  <span class="o">--</span><span class="n">project</span> <span class="n">project_id</span> \
+  <span class="o">--</span><span class="n">zone</span> <span class="n">zone_name</span> \
+  <span class="o">--</span> <span class="o">-</span><span class="n">NL</span> <span class="mi">4321</span><span class="p">:</span><span class="n">localhost</span><span class="p">:</span><span class="mi">6006</span>
+</code></pre></div></div>
+<p>(See <a href="https://cloud.google.com/solutions/connecting-securely">here</a> for more details.) After running this, we can now just go to our browser and enter the url: <code class="highlighter-rouge">localhost:4321</code> viola! Tensorboard let’s the tensors flow straight to us!  Here is a actual screenshot from my first two (not very succesful) runs. (Note that we need to change the name of the logfile between runs in order to save more than one run):</p>
+
+<p><img src="https://drive.google.com/uc?id=1LQ_rl7UTwyVE91XXStlH9Obl-Tsp1GgT" alt="tb2" /></p>
+
+<p>Again, the port mapping technique is not specific to Tensorboard and is useful for any GUI we want to use on the cloud.  For instance, suppose we are running <a href="http://zeppelin.apache.org/">Zeppelin</a> (highly recommended) on google cloud.  The canonical port is <code class="highlighter-rouge">8080</code>, so we just need to run:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">gcloud</span> <span class="n">compute</span> <span class="n">ssh</span> <span class="n">instance_name</span> \
+  <span class="o">--</span><span class="n">project</span> <span class="n">project_id</span> \
+  <span class="o">--</span><span class="n">zone</span> <span class="n">zone_name</span> \
+  <span class="o">--</span> <span class="o">-</span><span class="n">NL</span> <span class="mi">1111</span><span class="p">:</span><span class="n">localhost</span><span class="p">:</span><span class="mi">6060</span>
+</code></pre></div></div>
+
+<p>Of course, we also need to pick an unoccupied port for our local browser!</p>
+
+<p>Now we are all set!  You can run a massive training run on the cloud all week, check in on it’s progress, and not worry about having to babysit your computer :) Hope this was informative.  Now, I’m going to get back to trying to figure out why my training curves are so flat!</p>
+
+  </article>
+  
+</div>
+
+<div class="pagination">
+  
+    <a class="pagination-item older" href="/page3">Older</a>
+  
+  
+    <a class="pagination-item newer" href="/">Newer</a>
+  
+</div>
+
+      </main>
+
+      <footer class="footer">
+        <small>
+          &copy; <time datetime="2018-11-23T23:48:17-08:00">2018</time>. All rights reserved.
+        </small>
+      </footer>
+    </div>
+
+    
+  </body>
+</html>

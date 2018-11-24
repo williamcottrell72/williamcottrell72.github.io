@@ -1,0 +1,691 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+ <title>Billy Cottrell</title>
+ <link href="http://localhost:4000/atom.xml" rel="self"/>
+ <link href="http://localhost:4000/"/>
+ <updated>2018-11-23T23:48:17-08:00</updated>
+ <id>http://localhost:4000</id>
+ <author>
+   <name>William Cottrell</name>
+   <email>williamcottrell72@gmail.com</email>
+ </author>
+
+ 
+ <entry>
+   <title>TravelApp II - Cold Start Problem</title>
+   <link href="http://localhost:4000/2018/11/22/TravelApp_2/"/>
+   <updated>2018-11-22T00:00:00-08:00</updated>
+   <id>http://localhost:4000/2018/11/22/TravelApp_2</id>
+   <content type="html">&lt;p&gt;Today I’ll be continuing my discussion of the TravelApp recommender system. Recall that our goal is to take a bunch of user-generated attraction ratings and then use this to make predictions about which attractions a new user might like.  So, our input data looks like this:&lt;/p&gt;
+
+&lt;table&gt;
+    &lt;tr&gt;
+      &lt;th&gt;Name&lt;/th&gt;
+      &lt;th&gt;Golden Gate Bridge&lt;/th&gt;
+      &lt;th&gt;Alcatraz&lt;/th&gt;
+      &lt;th&gt; Gregangelo &lt;/th&gt;
+      &lt;th&gt; SF MoMA &lt;/th&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Alice&lt;/td&gt;
+      &lt;td&gt;5&lt;/td&gt;
+      &lt;td&gt;4&lt;/td&gt;
+      &lt;td&gt; &lt;font color=&quot;red&quot;&gt;?&lt;/font&gt; &lt;/td&gt;
+      &lt;td&gt; 2 &lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Bob&lt;/td&gt;
+      &lt;td&gt;4&lt;/td&gt;
+      &lt;td&gt;&lt;font color=&quot;red&quot;&gt;?&lt;/font&gt;&lt;/td&gt;
+      &lt;td&gt; 0 &lt;/td&gt;
+      &lt;td&gt; &lt;font color=&quot;red&quot;&gt;?&lt;/font&gt; &lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Charlie&lt;/td&gt;
+      &lt;td&gt;0&lt;/td&gt;
+      &lt;td&gt;2&lt;/td&gt;
+      &lt;td&gt; 5&lt;/td&gt;
+      &lt;td&gt; 4&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt; Tom &lt;/td&gt;
+      &lt;td&gt; &lt;font color=&quot;red&quot;&gt;?&lt;/font&gt; &lt;/td&gt;
+      &lt;td&gt; 2 &lt;/td&gt;
+      &lt;td&gt; 4 &lt;/td&gt;
+      &lt;td&gt; 5 &lt;/td&gt;
+    &lt;/tr&gt;
+&lt;/table&gt;
+
+&lt;p&gt;…and our goal is to figure out where a first-time user of our app would like to visit.&lt;/p&gt;
+
+&lt;p&gt;Now, if our putative new user had &lt;em&gt;already&lt;/em&gt; rated dozens of attractions then we could just build a collaborative auto-filter, as described in a previous post.  However, we are by assumption interested in a new user who is visiting a new city for the first time.  There probably won’t be much overlap between attractions visited by the individual and the ones in a given city.&lt;/p&gt;
+
+&lt;p&gt;So, what should we do?  Clearly, we need to have &lt;em&gt;some&lt;/em&gt; data on this user in order to get started.  Without anything better, all we can do is ask the user how much they like certain qualities of travel attractions and then try to match them to attractions with similar qualities.  We will call these user-defined features &lt;strong&gt;preferences&lt;/strong&gt;.  Since the user will be asked to rate their preference in several categories, we will speak of a &lt;strong&gt;preference vector&lt;/strong&gt;.&lt;/p&gt;
+
+&lt;p&gt;Now, we also want the power of neural networks so that we can capture non-linearities and keep improving as our information on the user increases.  Thus, our solution is to append the &lt;strong&gt;preference (row) vector&lt;/strong&gt; to the row-vector of ratings which we assign to each user.  Of course, for a new user, the ratings will be &lt;code class=&quot;highlighter-rouge&quot;&gt;NaN&lt;/code&gt;, but then we are back in the situation where we can use the collaborative auto-filter again!&lt;/p&gt;
+
+&lt;p&gt;Pictorially, we have something like this:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;https://drive.google.com/uc?id=1Pmve5AFc_deA79EF-sDPSzIA6fQXH07M&quot; alt=&quot;image&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Ok, so how do we get &lt;strong&gt;preference vectors&lt;/strong&gt; to add to our user data to begin with?  Well, I apologize but we’re going to need to make some arbitrary, albeit reasonable, choices in order to move forward.  For the new user, the answer is simple - we make up some categories, “Nature, Culture, History and Recreation” to be specific, and then ask the user to rate themselves on a scale of -10 to 10.  The interface (at this very moment) looks like:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;https://drive.google.com/uc?id=1Ys-UevLFgJukTGfmyn9i1gQjvvKFZ0nl&quot; alt=&quot;image&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;So, this user loves Nature and is ambivalent about Culture, History and Recreation.  (He also wants to travel from 8am to 5pm and has $2000 to blow.)&lt;/p&gt;
+
+&lt;p&gt;Next, we need to generate some kind of comparable &lt;strong&gt;preference vector&lt;/strong&gt; for the users in our database.  This is where it gets a little bit tricky.  A-priori, we don’t know how to correlate the self-rankings of a new user to the profiles we have in our database.  However, since we need to do something, here how we proceed.  First, we note that the travel sites sourcing our data provide tags to describe each site, i.e, things like “Hiking” or “Museum”.  We then map all of these tags (several hundred of them) to our categories.  For instance, a “Art Museum” gets translated to “Culture” and “Hiking” gets translated to “Nature”.  Thus, an attraction that has the tags “Hiking and Art Museum” will be assigned a preference vector (1,0,1,0) in the (Nature,History,Culture,Recreation) basis. Sometimes it gets tricky.  For instance, a log cabin is purely history, but a history museum could be both “History” and “Culture”.  In any case, we will just sum up the various tags translated into our basis to get a feature vector for a site.  For an individual use, we then take a linear combination of all the places they’ve visited, weighted by the scores they’ve assigned each attraction.  In pictures, we have:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;https://drive.google.com/uc?id=1-t-w-wAOJ5Qh-QHdNdxzOqSc4L2sMo91&quot; alt=&quot;image&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;As a final step, we convert all of these numbers to percentiles and then scale the result to the range 0 to 10.  Converting to percentiles makes the data much more smooth and so the neural network will train more quickly.  We map to the range 0 to 10 (and not -10 to 10 as with our new-user inputs) because people just don’t go to places they don’t like.  In other words, even if someone tends to rank Nature places lowly, the fact that they went at all means they don’t “hate” nature too much.  On the other hand, some people do truly hate the outdoors and would have never gone in the first place.  Thus, our sliders have an additional range of values that account for people who aren’t represented in the dataset because they never visited a certain kind of attraction in the first place.&lt;/p&gt;
+
+&lt;p&gt;One may questions all these assumptions, but, at the very least, we are able to generate a recommender system that is very sensitive to the users input.  I.e., changing the input will change the recommendations in a ‘reasonable’ way.  Let’s see what the output is for the settings above:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;https://drive.google.com/uc?id=17f8rjfg93G0B62Efe6iqTiSH3w9O1QGZ&quot; alt=&quot;image&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Not so bad, we do indeed get a lot of Nature-heavy recommendations as expected.  The next step is to use these to build an actual itinerary, to be discussed later!&lt;/p&gt;
+</content>
+ </entry>
+ 
+ <entry>
+   <title>Google CLoud Computing with Tensorboard</title>
+   <link href="http://localhost:4000/2018/11/21/GCloud+Tensorboard/"/>
+   <updated>2018-11-21T00:00:00-08:00</updated>
+   <id>http://localhost:4000/2018/11/21/GCloud+Tensorboard</id>
+   <content type="html">&lt;p&gt;In today’s post I’m going to describe how to set up Tensorboard on google cloud so that you can monitor your deep learning progress with ease.  For the neophytes reading this, Tensorboard is an application that comes with Tensorflow and it allows you to visualize key metrics that are logged while the training is in progress.  The result is served on port 6006 of the ‘local’ browser and looks something like the picture above.
+&lt;!--
+&lt;img src=&quot;https://drive.google.com/uc?id=1gPpKJsJA93PPs-etLmTmhoTo1UyZTSy6&quot; alt=&quot;Hope this works!&quot;&gt; --&gt;&lt;/p&gt;
+
+&lt;p&gt;In this example, the cross-entropy is displayed.  We can, however, collect and display any statistic from the learning process we want, as well as the graph of the network.&lt;/p&gt;
+
+&lt;p&gt;This is all well and good, but there are a couple of challenges to be met in going from the ‘vanilla’ instructions on the website to what I actually wanted to do.  First off, I wanted to run the training on google cloud so that my model is working even while my computer (and me) are sleeping.  Second, I’m not using Tensorflow directly, I’m using Pytorch and Tensorflow is merely serving as a backend.  Thus, some of the instructions for setting things up need to be adjusted.&lt;/p&gt;
+
+&lt;p&gt;For the second problem, Pytorch vs Tensorflow, there is an off the shelf solution: &lt;a href=&quot;https://pypi.org/project/tensorboardX/&quot;&gt;TensorboardX&lt;/a&gt; or &lt;a href=&quot;https://github.com/lanpa/tensorboardX&quot;&gt; here&lt;/a&gt; for the source.  This very straight-forward to get the hang of.  Here I’ll just give a very simple example of the basic usage.  The procedure is as follows:&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;pip&lt;/code&gt; install TensorboardX.&lt;/li&gt;
+  &lt;li&gt;In your (Python) header include &lt;code class=&quot;highlighter-rouge&quot;&gt;form tensorboardX import SummaryWriter&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;Before your training loop, declare a summary writer via:
+ &lt;code class=&quot;highlighter-rouge&quot;&gt;writer=SummaryWriter()&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;For any variable, &lt;code class=&quot;highlighter-rouge&quot;&gt;v&lt;/code&gt; which you’d like to log during training, include:&lt;br /&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;writer.add_scalar('logfile',v,i)&lt;/code&gt;, where ‘logfile’ is the path to the log file that you want to put this information in.  (No harm in literally just using ‘logfile’!) and ‘i’ is the iteration that we are on in the training run.  So, you can think of &lt;code class=&quot;highlighter-rouge&quot;&gt;i&lt;/code&gt; and &lt;code class=&quot;highlighter-rouge&quot;&gt;v&lt;/code&gt; as being like the &lt;code class=&quot;highlighter-rouge&quot;&gt;x&lt;/code&gt; and &lt;code class=&quot;highlighter-rouge&quot;&gt;y&lt;/code&gt; coordinates of a scatter plot that we are going to make.&lt;/li&gt;
+  &lt;li&gt;It’s good practice to close the writer after the training loop: &lt;code class=&quot;highlighter-rouge&quot;&gt;writer.close()&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;Now, start training!  We will immediately start generating data that gets dumped to the logfile.&lt;/li&gt;
+  &lt;li&gt;Now, in the terminal, type:
+&lt;code class=&quot;highlighter-rouge&quot;&gt;tensorboard --logdir path&lt;/code&gt;, where path leads to the directory where &lt;code class=&quot;highlighter-rouge&quot;&gt;logfile&lt;/code&gt; lives.&lt;/li&gt;
+  &lt;li&gt;Great, we have launched the tensorboard!  Where does it live?  Well, this is essentially a web app, so it lives in your browser.  By default the images are served to port 6006.  So, in the browser, just go to &lt;code class=&quot;highlighter-rouge&quot;&gt;localhost:6006&lt;/code&gt; and see!&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;So far so good - this is a standard Tensorboard workflow.  However, it is a little more tricky when we want to do the training on a cloud platform like Google Cloud.  There, we can indeed follow all of these steps, but the result will just be displayed for a browser listening to the &lt;code class=&quot;highlighter-rouge&quot;&gt;localhost&lt;/code&gt; in Google’s compute center!  How do we get access to this?&lt;/p&gt;
+
+&lt;p&gt;A similar problem already occurs if we want to have &lt;em&gt;any&lt;/em&gt; interactive GUI environment while working on the cloud.  Sure, we can easily run scripts on the cloud, but how do we see what is going on?  The answer: &lt;strong&gt;port mapping&lt;/strong&gt;.  We need to map the output of the &lt;code class=&quot;highlighter-rouge&quot;&gt;localhost&lt;/code&gt; on Google’s machine to the local host on our machine.  Assuming we already have the google compute instance set up and running and the gcloud cli installed, the magic incantation to do port mapping is:&lt;/p&gt;
+
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;n&quot;&gt;gcloud&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;compute&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ssh&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;instance_name&lt;/span&gt; \
+  &lt;span class=&quot;o&quot;&gt;--&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;project&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;project_id&lt;/span&gt; \
+  &lt;span class=&quot;o&quot;&gt;--&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;zone&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;zone_name&lt;/span&gt; \
+  &lt;span class=&quot;o&quot;&gt;--&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;NL&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;4321&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;localhost&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;6006&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;(See &lt;a href=&quot;https://cloud.google.com/solutions/connecting-securely&quot;&gt;here&lt;/a&gt; for more details.) After running this, we can now just go to our browser and enter the url: &lt;code class=&quot;highlighter-rouge&quot;&gt;localhost:4321&lt;/code&gt; viola! Tensorboard let’s the tensors flow straight to us!  Here is a actual screenshot from my first two (not very succesful) runs. (Note that we need to change the name of the logfile between runs in order to save more than one run):&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;https://drive.google.com/uc?id=1LQ_rl7UTwyVE91XXStlH9Obl-Tsp1GgT&quot; alt=&quot;tb2&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Again, the port mapping technique is not specific to Tensorboard and is useful for any GUI we want to use on the cloud.  For instance, suppose we are running &lt;a href=&quot;http://zeppelin.apache.org/&quot;&gt;Zeppelin&lt;/a&gt; (highly recommended) on google cloud.  The canonical port is &lt;code class=&quot;highlighter-rouge&quot;&gt;8080&lt;/code&gt;, so we just need to run:&lt;/p&gt;
+
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;n&quot;&gt;gcloud&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;compute&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ssh&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;instance_name&lt;/span&gt; \
+  &lt;span class=&quot;o&quot;&gt;--&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;project&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;project_id&lt;/span&gt; \
+  &lt;span class=&quot;o&quot;&gt;--&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;zone&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;zone_name&lt;/span&gt; \
+  &lt;span class=&quot;o&quot;&gt;--&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;NL&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1111&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;localhost&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;6060&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Of course, we also need to pick an unoccupied port for our local browser!&lt;/p&gt;
+
+&lt;p&gt;Now we are all set!  You can run a massive training run on the cloud all week, check in on it’s progress, and not worry about having to babysit your computer :) Hope this was informative.  Now, I’m going to get back to trying to figure out why my training curves are so flat!&lt;/p&gt;
+</content>
+ </entry>
+ 
+ <entry>
+   <title>TravelApp I - Recommender Systems</title>
+   <link href="http://localhost:4000/2018/10/26/TravelApp_1/"/>
+   <updated>2018-10-26T00:00:00-07:00</updated>
+   <id>http://localhost:4000/2018/10/26/TravelApp_1</id>
+   <content type="html">&lt;p&gt;In this series of posts I will try and describe some lessons learned while developing a travel app for my final project at the Metis Data Science bootcamp.  This work was done in collaboration with Vivien Tsao - a fellow student - and I will make no attempt to distinguish our respective contributions.&lt;/p&gt;
+
+&lt;p&gt;The goal of TravelApp&lt;sup id=&quot;fnref:fn-sample_footnote&quot;&gt;&lt;a href=&quot;#fn:fn-sample_footnote&quot; class=&quot;footnote&quot;&gt;1&lt;/a&gt;&lt;/sup&gt; is to provide highly personalized travel recommendations for travel itinerary, restaurants, attractions, and local guides.   The basic idea is that the user will provide their travel times, budget, and some ‘preferences’.  We will then generate some recommendations, e.g., “Go check out Alcatraz in the morning, then take a cable car to SF MOMA, finally, spend the evening at the Gregangelo. “&lt;/p&gt;
+
+&lt;p&gt;Many components are needed in order for TravelApp to work.  For starters we will need:&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;A routine which converts user preferences into scored lists of attractions, restaurants, and guides. This is our Recommender System, or RECSYS.&lt;/li&gt;
+  &lt;li&gt;A routine which takes scored lists of attractions, restaurants and guides and produces an ‘optimal’ itinerary.  This component will be referred to as the Itinerary Generator, or, ITINGEN for short.&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;Here, I will first describe some lessons learned in developing the RECSYS.  Subsequent posts will cover other aspects of this project.  As this is clearly an ambitious and open-ended endeavor, there will likely be many, many more posts coming.  Feel free to join me on this journey and let me know what I’m doing wrong or right along the way!&lt;/p&gt;
+
+&lt;h2 id=&quot;recommender-systems&quot;&gt;Recommender Systems&lt;/h2&gt;
+
+&lt;p&gt;The basic idea of a recommender system is that one is given partial data, e.g., how much so-and-so like such-and-such movie, and then one is expected to guess the full set of data, e.g., how much everyone likes every movie.  In our particular case, we have a set of rankings of various attractions provided by users of Trip Adviser.  The data looks something like:&lt;/p&gt;
+
+&lt;table&gt;
+    &lt;tr&gt;
+      &lt;th&gt;Name&lt;/th&gt;
+      &lt;th&gt;Golden Gate Bridge&lt;/th&gt;
+      &lt;th&gt;Alcatraz&lt;/th&gt;
+      &lt;th&gt; Gregangelo &lt;/th&gt;
+      &lt;th&gt; SF MoMA &lt;/th&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Alice&lt;/td&gt;
+      &lt;td&gt;5&lt;/td&gt;
+      &lt;td&gt;4&lt;/td&gt;
+      &lt;td&gt; &lt;font color=&quot;red&quot;&gt;?&lt;/font&gt; &lt;/td&gt;
+      &lt;td&gt; 2 &lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Bob&lt;/td&gt;
+      &lt;td&gt;4&lt;/td&gt;
+      &lt;td&gt;&lt;font color=&quot;red&quot;&gt;?&lt;/font&gt;&lt;/td&gt;
+      &lt;td&gt; 0 &lt;/td&gt;
+      &lt;td&gt; &lt;font color=&quot;red&quot;&gt;?&lt;/font&gt; &lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Charlie&lt;/td&gt;
+      &lt;td&gt;0&lt;/td&gt;
+      &lt;td&gt;2&lt;/td&gt;
+      &lt;td&gt; 5&lt;/td&gt;
+      &lt;td&gt; 4&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt; Tom &lt;/td&gt;
+      &lt;td&gt; &lt;font color=&quot;red&quot;&gt;?&lt;/font&gt; &lt;/td&gt;
+      &lt;td&gt; 2 &lt;/td&gt;
+      &lt;td&gt; 4 &lt;/td&gt;
+      &lt;td&gt; 5 &lt;/td&gt;
+    &lt;/tr&gt;
+&lt;/table&gt;
+
+&lt;p&gt;…and our goal is to produce something like the following:&lt;/p&gt;
+
+&lt;table&gt;
+    &lt;tr&gt;
+      &lt;th&gt;Name&lt;/th&gt;
+      &lt;th&gt;Golden Gate Bridge&lt;/th&gt;
+      &lt;th&gt;Alcatraz&lt;/th&gt;
+      &lt;th&gt; Gregangelo &lt;/th&gt;
+      &lt;th&gt; SF MoMA &lt;/th&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Alice&lt;/td&gt;
+      &lt;td&gt;5&lt;/td&gt;
+      &lt;td&gt;4&lt;/td&gt;
+      &lt;td&gt; &lt;font color=&quot;blue&quot;&gt;1&lt;/font&gt; &lt;/td&gt;
+      &lt;td&gt; 2 &lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Bob&lt;/td&gt;
+      &lt;td&gt;4&lt;/td&gt;
+      &lt;td&gt;&lt;font color=&quot;blue&quot;&gt;4&lt;/font&gt;&lt;/td&gt;
+      &lt;td&gt; 0 &lt;/td&gt;
+      &lt;td&gt; &lt;font color=&quot;blue&quot;&gt;1&lt;/font&gt; &lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Charlie&lt;/td&gt;
+      &lt;td&gt;0&lt;/td&gt;
+      &lt;td&gt;2&lt;/td&gt;
+      &lt;td&gt; 5&lt;/td&gt;
+      &lt;td&gt; 4&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt; Tom &lt;/td&gt;
+      &lt;td&gt; &lt;font color=&quot;blue&quot;&gt;1&lt;/font&gt; &lt;/td&gt;
+      &lt;td&gt; 2 &lt;/td&gt;
+      &lt;td&gt; 4 &lt;/td&gt;
+      &lt;td&gt; 5 &lt;/td&gt;
+    &lt;/tr&gt;
+&lt;/table&gt;
+
+&lt;p&gt;Naively, what we are asked to do makes no sense.  The missing values could a-priori be anything and there is no direct way to derive the correct value to fill in.&lt;/p&gt;
+
+&lt;p&gt;However, this should not deter us.   The situation here is no different than what is often encountered in science.  Given some data, we need to develop a model that describes the data.  If the model is not too ad-hoc then we might expect it to generalize well and thus be able to describe new, yet to be seen data.&lt;/p&gt;
+
+&lt;p&gt;For the toy example above, we one might suggest the following ‘model’ by looking at the first table.  First, note that for the examples displayed, ‘Golden Gate Bridge’ scores and ‘Alcatraz Scores’ seem to vary together.  Likewise, ‘Gregangelo’ and “SF MoMA” seem to vary together as well.  With no further domain knowledge, one might suggest that there is some hidden feature, “&lt;strong&gt;N&lt;/strong&gt;”&lt;sup id=&quot;fnref:fn-footnote2&quot;&gt;&lt;a href=&quot;#fn:fn-footnote2&quot; class=&quot;footnote&quot;&gt;2&lt;/a&gt;&lt;/sup&gt;, which is positive for the first two attractions and negative for the second two attractions.  Moreover, perhaps there are two kinds of people, those that like the &lt;strong&gt;N&lt;/strong&gt; quality, and those who do not.  Thus, what we might do is use the given data to assign a value of &lt;strong&gt;N&lt;/strong&gt; to each attraction, and then another number, &lt;strong&gt;A&lt;/strong&gt;, for each user, which tells us how much they appreciate the quality &lt;strong&gt;N&lt;/strong&gt;.  We would then be led to a model like:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;https://latex.codecogs.com/svg.latex?{\color{white}\Large&amp;space;\text{Score}_{u a} = N_{a} A_{u}+b_{u}}&quot; title=&quot;LinearAnsatz1&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Here, &lt;strong&gt;N&lt;/strong&gt;&lt;sub&gt;a&lt;/sub&gt; is the value of &lt;strong&gt;N&lt;/strong&gt; for attraction &lt;strong&gt;a&lt;/strong&gt;, &lt;strong&gt;A&lt;/strong&gt;&lt;sub&gt;u&lt;/sub&gt; quantifies how much the given user appreciates the feature &lt;strong&gt;N&lt;/strong&gt;, and &lt;strong&gt;b&lt;/strong&gt;&lt;sub&gt;u&lt;/sub&gt; is an offset.&lt;/p&gt;
+
+&lt;p&gt;Notice what we’ve accomplished.  The original table consisted 16=4x4 degrees of freedom, of which 12 were known.  In contrast, the our linear model contains 12 = 4 +4+4 (from &lt;strong&gt;N&lt;/strong&gt;&lt;sub&gt;a&lt;/sub&gt;, &lt;strong&gt;A&lt;/strong&gt;&lt;sub&gt;u&lt;/sub&gt; and &lt;strong&gt;b&lt;/strong&gt;&lt;sub&gt;u&lt;/sub&gt;) degrees of freedom.  Thus, we have just enough information to fit the the supplied data and make predictions for the unknowns.&lt;/p&gt;
+
+&lt;p&gt;In real problems, things are not so simple.  Typically, we can expect:&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;A large, sparse table with only a small fraction of entries filled.&lt;/li&gt;
+  &lt;li&gt;A larger number of hidden features to play a role.&lt;/li&gt;
+  &lt;li&gt;No exact fit of the data for any ‘reasonable’ model.&lt;/li&gt;
+  &lt;li&gt;Non-linear relationship between score and hidden features.&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;So, how do we go about making predictions in a principled way?  Maybe we could try something like:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;https://latex.codecogs.com/svg.latex?{\color{white}\Large&amp;space;\text{Score}_{u a} =\sum_{k} N_{ka} A_{ku}+b_{u}}&quot; title=&quot;LinearAnsatz2&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Here, &lt;strong&gt;k&lt;/strong&gt; labels the set of ‘hidden features’ and, for instance, &lt;strong&gt;N&lt;/strong&gt;&lt;sub&gt;ku&lt;/sub&gt; labels how much of feature &lt;strong&gt;k&lt;/strong&gt; is in attraction &lt;strong&gt;a&lt;/strong&gt;.  Our goal is now to determine &lt;strong&gt;N&lt;/strong&gt;&lt;sub&gt;ku&lt;/sub&gt;, &lt;strong&gt;A&lt;/strong&gt;&lt;sub&gt;ku&lt;/sub&gt;, and &lt;strong&gt;b&lt;/strong&gt;&lt;sub&gt;u&lt;/sub&gt; from the data given.  If there are &lt;em&gt;K&lt;/em&gt; hidden features, &lt;em&gt;U&lt;/em&gt; users, and &lt;em&gt;S&lt;/em&gt; sites, then our ansatz has a total of &lt;em&gt;K(S+U) + U&lt;/em&gt; variables, which, with appropriate choice of &lt;em&gt;K&lt;/em&gt; is much less than the&lt;/p&gt;
+
+&lt;p&gt;This ansatz is a good start, but it fails to account for the fact that the ratings are capped at a particular value (5, for Trip Adviser).  We should thus, at least, pass the result through a logistic function.  In other words, we really want something like:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;https://latex.codecogs.com/svg.latex?\Large&amp;space;{\color{white}\text{Score}_{u a} \sim \sigma\left(\sum_{k} N_{ka} A_{ku}+b_{u}\right)}&quot; title=&quot;SigmaLinearAnsatz&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;This is OK but we can do better.  We should also allow for some non-linear interactions in our ansatz. This will allow for a richer structure of preferences and thus model a more diverse set of users.  Cue the neural network!   A neural network is a simple generalization of the model above. Rather than taking the &lt;strong&gt;N&lt;/strong&gt;&lt;sub&gt;ku&lt;/sub&gt; to represent the raw values of feature &lt;strong&gt;k&lt;/strong&gt;, we can allow the &lt;strong&gt;N&lt;/strong&gt;&lt;sub&gt;ku&lt;/sub&gt; to be the output of another &lt;strong&gt;&lt;em&gt;layer&lt;/em&gt;&lt;/strong&gt; in the network.  In equations, this is:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;https://latex.codecogs.com/svg.latex?\Large&amp;space;{\color{white} N_{k a} \rightarrow \sigma\left(\sum_{\tilde{k}} \tilde{N}_{\tilde{k}k} \tilde{A}_{\tilde{k}a}+\tilde{b}_{a}\right)}&quot; title=&quot;AddLayer&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;We are free to iteratively add as many layers as we would like by replacing &lt;strong&gt;N&lt;/strong&gt; with a self-similar equation as we did above.  This will give a general feed-forward neural network and we can use our training set and standard machine learning methods to determine the &lt;strong&gt;A&lt;/strong&gt; and &lt;strong&gt;b&lt;/strong&gt; parameters.&lt;/p&gt;
+
+&lt;p&gt;Implementing this in PyTorch is not too difficult. Let’s first define a &lt;strong&gt;&lt;em&gt;recsys&lt;/em&gt;&lt;/strong&gt; class that will contain some useful methods.  We’ll keep things simple and just add one extra hidden layer.  I’ll also add a layer called ‘Dropout’ which does exactly what it says - it ignore a random sample of neurons in each training run.  This technique has been demonstrated to prevent over-fitting (See &lt;a href=&quot;http://jmlr.org/papers/volume15/srivastava14a.old/srivastava14a.pdf&quot;&gt;here&lt;/a&gt;.)&lt;/p&gt;
+
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;k&quot;&gt;class&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;recsys&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;nn&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Module&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
+
+
+    &lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;__init__&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ratings&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;bp&quot;&gt;None&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;users&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;100&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sites&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1000&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;latent_features&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;12&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;\
+                 &lt;span class=&quot;n&quot;&gt;dropout&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;mf&quot;&gt;.1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;max_iter&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;10&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;epochs&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;temperature&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;lr&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;mf&quot;&gt;.01&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;batch_size&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;500&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;\
+                 &lt;span class=&quot;n&quot;&gt;losses&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;bp&quot;&gt;None&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
+
+        &lt;span class=&quot;nb&quot;&gt;super&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;recsys&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;__init__&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+
+
+        &lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;users&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;users&lt;/span&gt;
+        &lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sites&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sites&lt;/span&gt;
+        &lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;dropout&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;nn&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Dropout&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;p&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;dropout&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+        &lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;max_iter&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;max_iter&lt;/span&gt;
+        &lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;lr&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;lr&lt;/span&gt;
+        &lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;batch_size&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;batch_size&lt;/span&gt;
+        &lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;temperature&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;temperature&lt;/span&gt;
+        &lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ratings&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ratings&lt;/span&gt;
+        &lt;span class=&quot;c1&quot;&gt;# self.mask=torch.tensor(np.logical_not(np.isnan(ratings)).astype(int)).type(torch.ByteTensor)
+&lt;/span&gt;        &lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;losses&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;bp&quot;&gt;None&lt;/span&gt;
+        &lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;epochs&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;epochs&lt;/span&gt;
+        &lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;linear1&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;nn&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Linear&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sites&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;latent_features&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+        &lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;linear2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;nn&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Linear&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;latent_features&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;latent_features&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+        &lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;linear3&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;nn&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Linear&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;latent_features&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sites&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;Here, &lt;code class=&quot;highlighter-rouge&quot;&gt;nn.Linear(N,M)&lt;/code&gt; is a general linear map from an array of dimension &lt;strong&gt;&lt;em&gt;N&lt;/em&gt;&lt;/strong&gt; to one of dimension &lt;strong&gt;&lt;em&gt;M&lt;/em&gt;&lt;/strong&gt;.&lt;/p&gt;
+
+&lt;p&gt;So far we’ve just defined the variables we need in the network.  Now, we should string them together.  In PyTorch, this is accomplished with a particular function called &lt;code class=&quot;highlighter-rouge&quot;&gt;forward&lt;/code&gt;.  We thus need something like:&lt;/p&gt;
+
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;forward&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;linear1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;float&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;())&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;torch&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;tanh&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;linear2&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;float&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;())&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;dropout&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;float&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;())&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;torch&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;tanh&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;linear3&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;float&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;())&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;x&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;The notation is hopefully self-explanatory.  A Torch tensor, &lt;code class=&quot;highlighter-rouge&quot;&gt;x&lt;/code&gt; goes in, gets processed throught the various layers, and then a new tensor comes out.&lt;/p&gt;
+
+&lt;p&gt;Finally, we should train our model.  As with Tensorflow, PyTorch supports a back-propogation method, &lt;code class=&quot;highlighter-rouge&quot;&gt;backward&lt;/code&gt; and we merely need to call this function on our loss function &lt;sup id=&quot;fnref:fn-footnote3&quot;&gt;&lt;a href=&quot;#fn:fn-footnote3&quot; class=&quot;footnote&quot;&gt;3&lt;/a&gt;&lt;/sup&gt;.  Crudely speaking, this operation determines the infinitesimal dependence of the loss function on all the weights showing up in the network.  After calling &lt;code class=&quot;highlighter-rouge&quot;&gt;backward&lt;/code&gt;, we can then do &lt;code class=&quot;highlighter-rouge&quot;&gt;optimizer.step()&lt;/code&gt; in order to take one step down the loss function.  The optimizer chosen below is &lt;a href=&quot;https://arxiv.org/abs/1412.6980&quot;&gt;Adam&lt;/a&gt;.&lt;/p&gt;
+
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;fit&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ratings&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;bp&quot;&gt;None&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
+
+
+    &lt;span class=&quot;n&quot;&gt;f&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;open&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'raw_data/losses'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'w+'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+
+    &lt;span class=&quot;n&quot;&gt;losses&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[]&lt;/span&gt;
+
+    &lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt; &lt;span class=&quot;ow&quot;&gt;in&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;range&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;epochs&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;+&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
+
+        &lt;span class=&quot;n&quot;&gt;optimizer&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;optim&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Adam&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;parameters&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(),&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;lr&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;lr&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;print&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;f&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'Epoch {i}'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+
+        &lt;span class=&quot;n&quot;&gt;sample_indices&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;np&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;random&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;choice&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;range&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;len&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ratings&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)),&lt;/span&gt;&lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;batch_size&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;replace&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;bp&quot;&gt;False&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;sample&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ratings&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sample_indices&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;
+
+        &lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;_&lt;/span&gt; &lt;span class=&quot;ow&quot;&gt;in&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;range&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;max_iter&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
+            &lt;span class=&quot;n&quot;&gt;optimizer&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;zero_grad&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+            &lt;span class=&quot;n&quot;&gt;out&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;forward&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sample&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+            &lt;span class=&quot;n&quot;&gt;loss&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;custom_loss&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;out&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sample&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+            &lt;span class=&quot;n&quot;&gt;losses&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;append&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;float&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;loss&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;detach&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;numpy&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()))&lt;/span&gt;
+            &lt;span class=&quot;n&quot;&gt;f&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;write&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;str&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;loss&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;detach&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;numpy&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;())&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;+&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;','&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+            &lt;span class=&quot;n&quot;&gt;loss&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;backward&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;retain_graph&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;bp&quot;&gt;True&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+            &lt;span class=&quot;n&quot;&gt;optimizer&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;step&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+        &lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;losses&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;losses&lt;/span&gt;
+        &lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;lr&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;mf&quot;&gt;.7&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;lr&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;f&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;close&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;A couple of notes about this code.  Notice that there are two &lt;code class=&quot;highlighter-rouge&quot;&gt;for&lt;/code&gt; loops.  The outer loop is known as an &lt;code class=&quot;highlighter-rouge&quot;&gt;epoch&lt;/code&gt;.  For each epoch we select a new batch of training data randomly.  The inner loop is merely going down the slope for a given batch of data.  Using two loops in this manner allows the network to see all of the data and helps fight against over-fitting.&lt;/p&gt;
+
+&lt;p&gt;And that’s about it for creating a crude recommendation system!  Note that we have logged the losses for later inspection.  The loss function for a typical training run ends up looking like this:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;https://drive.google.com/uc?id=1coOdHbtKMSbJK6xTmcI_IjaxUlylsBNF&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;The large increases represent new batches.  What this shows is a rapid &lt;code class=&quot;highlighter-rouge&quot;&gt;learning&lt;/code&gt; occurring within each batch, but this is largely illusory since the loss function increases again when new data is seen.  What we should really be tracking is the beginning of each batch, which acts like a test set.  Focusing on this we do see slow but steady progress.&lt;/p&gt;
+
+&lt;p&gt;In order to use the now trained model, we simply use:&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;recsys(new_rating)&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;This will produce a vector of size &lt;code class=&quot;highlighter-rouge&quot;&gt;sites&lt;/code&gt; representing the rankings.&lt;/p&gt;
+
+&lt;p&gt;Next up, we’ll discuss a few simple changes which will dramatically improve this model.  We’ll also address the &lt;code class=&quot;highlighter-rouge&quot;&gt;cold start problem&lt;/code&gt;.  How do we make predictions on Day 1 without already having a massive dataset?&lt;/p&gt;
+
+&lt;div class=&quot;footnotes&quot;&gt;
+  &lt;ol&gt;
+    &lt;li id=&quot;fn:fn-sample_footnote&quot;&gt;
+      &lt;p&gt;Yes, the name could use some work. &lt;a href=&quot;#fnref:fn-sample_footnote&quot; class=&quot;reversefootnote&quot;&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+    &lt;/li&gt;
+    &lt;li id=&quot;fn:fn-footnote2&quot;&gt;
+      &lt;p&gt;With domain knowledge, we could say that &lt;strong&gt;N&lt;/strong&gt; secretely stands for Nature. &lt;a href=&quot;#fnref:fn-footnote2&quot; class=&quot;reversefootnote&quot;&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+    &lt;/li&gt;
+    &lt;li id=&quot;fn:fn-footnote3&quot;&gt;
+      &lt;p&gt;This may either be a built in or custom loss function. &lt;a href=&quot;#fnref:fn-footnote3&quot; class=&quot;reversefootnote&quot;&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+    &lt;/li&gt;
+  &lt;/ol&gt;
+&lt;/div&gt;
+</content>
+ </entry>
+ 
+ <entry>
+   <title>MVP Summary</title>
+   <link href="http://localhost:4000/2018/07/26/MVP/"/>
+   <updated>2018-07-26T00:00:00-07:00</updated>
+   <id>http://localhost:4000/2018/07/26/MVP</id>
+   <content type="html">&lt;h2 id=&quot;domain&quot;&gt;Domain&lt;/h2&gt;
+
+&lt;p&gt;I will be attemptig to calssify Kickstarter projects as successful or failed based on other features of the project.  I have visited the Kickstarter website and am relatively familiar it.  More generally, this project could be viewed as a baby step towards understanding when a business/project is likely to be succesful.&lt;/p&gt;
+
+&lt;h2 id=&quot;data&quot;&gt;Data&lt;/h2&gt;
+
+&lt;p&gt;The data I have so far was found on Kaggle.  I also plan to look into other data sources. The dataset of (completed) projects consists of ~45K rows with the following variables&lt;/p&gt;
+
+&lt;table&gt;
+  &lt;thead&gt;
+    &lt;tr&gt;
+      &lt;th&gt;Variable&lt;/th&gt;
+      &lt;th&gt;Type&lt;/th&gt;
+    &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Project Id&lt;/td&gt;
+      &lt;td&gt;Int&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Name&lt;/td&gt;
+      &lt;td&gt;String&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;url&lt;/td&gt;
+      &lt;td&gt;String&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Category&lt;/td&gt;
+      &lt;td&gt;String&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Subcategory&lt;/td&gt;
+      &lt;td&gt;String&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Location&lt;/td&gt;
+      &lt;td&gt;String&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Status&lt;/td&gt;
+      &lt;td&gt;String&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Goal&lt;/td&gt;
+      &lt;td&gt;Float&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Pledged&lt;/td&gt;
+      &lt;td&gt;Float&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Funded Percentage&lt;/td&gt;
+      &lt;td&gt;Float&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Backers&lt;/td&gt;
+      &lt;td&gt;Int&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Funded Date&lt;/td&gt;
+      &lt;td&gt;datetime&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Levels&lt;/td&gt;
+      &lt;td&gt;Int&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Reward Levels&lt;/td&gt;
+      &lt;td&gt;String&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Updates&lt;/td&gt;
+      &lt;td&gt;Int&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Comments&lt;/td&gt;
+      &lt;td&gt;Int&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Duration&lt;/td&gt;
+      &lt;td&gt;Int&lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+
+&lt;h2 id=&quot;known-unknowns&quot;&gt;Known Unknowns&lt;/h2&gt;
+
+&lt;p&gt;Many important aspects of the project are not available from the dataset.  These include&lt;/p&gt;
+
+&lt;p&gt;1.) Competence / knowledge of project organizers.
+2.) External advertising budget.&lt;/p&gt;
+
+&lt;p&gt;There is also data that is available but may be difficult to utilize.  For example, the kickstarter website has verbal descriptions of the data, but profiting from this will require a substantial amount of NLP.  In principle, I could try to utilize this.&lt;/p&gt;
+</content>
+ </entry>
+ 
+ <entry>
+   <title>Scraping Amazon</title>
+   <link href="http://localhost:4000/2018/07/23/ScrapingAmazon/"/>
+   <updated>2018-07-23T00:00:00-07:00</updated>
+   <id>http://localhost:4000/2018/07/23/ScrapingAmazon</id>
+   <content type="html">&lt;h2 id=&quot;scraping-amazon&quot;&gt;Scraping Amazon&lt;/h2&gt;
+
+&lt;p&gt;For those who want data (who doesn’t?) and who can’t find what they’re looking for on Kaggle, there is often the possibility of scraping the data from the web.  ‘Scraping’ may sound intimidating at first, but it is really just the process of automating the web-search that you might normally do to look something up online.  Fortunately, there are many useful tools in Python to make this easier.  In todays post, I’ll discuss how to scrape Amazon from start to finish.  I’ll also go over an analysis of the data.  This is just going to be a broad overview; more details will be provided in subsequent posts.&lt;/p&gt;
+
+&lt;h3 id=&quot;motivation&quot;&gt;Motivation&lt;/h3&gt;
+
+&lt;p&gt;Let’s say I’m selling widgets on Amazon.  Well, actually, I WAS selling widgets on Amazon, so this is not too hard to imagine.  I want to know how to best design my seller’s page.  I.e., how do I optimize the parameters of the page layout in order to maximize profit?&lt;/p&gt;
+
+&lt;p&gt;Of course, I could go into one of many Amazon seller chat forums where this precise question is often discussed.  There are of course standard recommendations.  However, I don’t trust humans, I only trust machines.  WWMD? (What would machines do?)&lt;/p&gt;
+
+&lt;p&gt;Now, I could consider using the Amazon API to get the data I want.  An API is like filling out a FOIA for a website.  And, like an FOIA, you won’t necessarily be able to get the data you want, when you want it.  You are basically constrained by what they are willing to give you and you have to play by their rules.  In the case of Amazon, one has to sign up as a seller/developer, get a KEY and, most annoyingly, promise to post Amazons junk on your blog.  I would never want to corrupt the purity of this moderately-OK blog, so that was a no-go.&lt;/p&gt;
+
+&lt;p&gt;So, we are down to scraping.  The data I want is right on the seller page so I know this should be possible.  In general, if you can see it, you can scrape it.  Of course, the API might actually let you get information that is invisible to the normal user, but we don’t need that anyway.&lt;/p&gt;
+
+&lt;p&gt;In order to scrape Amazon I used a combination of Selenium and BeautifulSoup.  These are both Python modules, so, my first two lines of code will look like:&lt;/p&gt;
+
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kn&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;bs4&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;BeautifulSoup&lt;/span&gt;
+&lt;span class=&quot;kn&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;selenium&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;webdriver&lt;/span&gt;
+&lt;span class=&quot;kn&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;selnium.webdriver.common.keys&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Keys&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Selenium is a module that let’s python control web-browser just like a human would.  In other words, you are telling the browser step-by-step what buttons to push and what to type in the web-site.&lt;/p&gt;
+
+&lt;p&gt;BeautifulSoup, on the other hand, just takes the raw HTML and parses it in order to find useful information.  It also helps format the HTML so that it is human readable.&lt;/p&gt;
+
+&lt;p&gt;For websites written in HTML BeautifulSoup alone would have sufficed.  However, many sights are written as JavaScript which is only rendered as HTML when opened.  So, basically, the strategy is to use selenium to open a page and the BeautifulSoup to read it.&lt;/p&gt;
+
+&lt;p&gt;Let’s review the basic features of each:&lt;/p&gt;
+
+&lt;h3 id=&quot;selenium&quot;&gt;Selenium&lt;/h3&gt;
+
+&lt;p&gt;Again, selenium just allows you to control the web-browser with python.  To use it, you must tell Python exactly where the driver for your browser lives.  First, you need to find where that was installed for your system.  For me it is in ‘Downloads’, for you it might be in Applications.  If you are using Chrome then the file you want will be called ‘chromedriver’.  Once you find the path, you’ll need something like:&lt;/p&gt;
+
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;n&quot;&gt;chromedriver&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;path/chromedriver&quot;&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;os&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;environ&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;webdriver.chrome.driver&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;chromedriver&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Now, if you’ve gotten this far and you have a url that you want to read then the rest is easy.  Just fead the url to selenium and convert it to soup!&lt;/p&gt;
+
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;n&quot;&gt;driver&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;get&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;url&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;soup&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;BeautifulSoup&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;driver&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;page_source&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'html.parser'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;Now, ‘soup’ is an HTML like object which can be parsed with bs4.  One useful method that can be called on ‘soup’ is ‘find_all’ which returns all objects with specific properties.  For instance,&lt;/p&gt;
+
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;n&quot;&gt;soup&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;find_all&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'span'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;class&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'...'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;will find all the objects with header ‘span’ and of class ‘…’.  To figure out what parts of the page you’re actually looking for it is convenient to go and open the browser and use the ‘DevelopmentTools’ feature.  This will allow you to display the HTML of whatever you click or hover over.  You then need to put those specs into the ‘find_all’ method.  There are more tools for parsing, but that is all that we will need for the moment.&lt;/p&gt;
+
+&lt;h3 id=&quot;beautiful-soup&quot;&gt;Beautiful Soup&lt;/h3&gt;
+
+&lt;p&gt;(brief description of bs)&lt;/p&gt;
+
+&lt;h2 id=&quot;problems&quot;&gt;Problems&lt;/h2&gt;
+
+&lt;p&gt;Now we are ready to sccrape!&lt;/p&gt;
+
+&lt;p&gt;Of course, in datascience things are never that easy.  Amazon doesn’t want us scraping them.  To see what, precisely, they do not like one can consult the .robots file.  In any case, we need to adopt some defensive measures.&lt;/p&gt;
+
+&lt;p&gt;1) Rotate IPs with &lt;em&gt;expressvpn&lt;/em&gt;
+2) Rotate user agent.
+3) Insert randomized sleeps.
+4) Randomize order of search, etc.&lt;/p&gt;
+
+&lt;p&gt;…need more time to finish…&lt;/p&gt;
+
+&lt;p&gt;…next blog will be about the data.&lt;/p&gt;
+</content>
+ </entry>
+ 
+ <entry>
+   <title>Project Turnstile</title>
+   <link href="http://localhost:4000/2018/07/11/Project-Turnstile/"/>
+   <updated>2018-07-11T00:00:00-07:00</updated>
+   <id>http://localhost:4000/2018/07/11/Project-Turnstile</id>
+   <content type="html">&lt;p&gt;Todays blog is about my first project for the Metis datascience bootcamp (SF 2018).
+The premise of this project is that a group ‘WomenTechWomenYes’ (WTWY) is trying
+to distribute flyers in support of their upcoming summer gala.  The group would like to find a good plan for when and where to distribute.  ‘We’ are being hired to help them develop this strategy.&lt;/p&gt;
+
+&lt;p&gt;The group is based in New York and so we have lots of subway turnstile data to work with.  This will form the basis for our analysis.  The basic idea is that the more people leaving the subway at a given time the more people will accept fliers.  We are particularly interested in exits.  No-one can stop a New Yorker trying to catch a subway.&lt;/p&gt;
+
+&lt;p&gt;We are also interested in other factors which might affect when someone will accept a flier.  Since the target group is women in tech, we will want to focus on regions with more women.  Tech workers like coffee, so it might also help to look at stations near many coffee shops.  We could also look at tech companies, or any number of other factors.&lt;/p&gt;
+
+&lt;p&gt;What we really want is an easily replicable pipeline that will allow us to look for the locations of &lt;em&gt;any&lt;/em&gt; type of establishment and then compute the distances to nearby subway stations.  Fortunately, the google places api will help us do this.  Basically, we will be able to enter in a plane English keyword, (e.g., ‘Coffee Shops’ or ‘Apple Stores’) and the goolgeplaces api will just spit out a list of addresses.  We can then convert these into a form that geopandas can recognize and make some nice plots.
+Our goal is to do this for a few different keywords and then form an aggregate score based on the distances between subway stations and the output of our keyword searches.&lt;/p&gt;
+
+&lt;p&gt;The code for this project may be found here: &lt;a href=&quot;https://github.com/williamcottrell72/project_benson&quot;&gt;repo&lt;/a&gt;.  My team consisted of myself, Xu, Alan, Auste and Chelan.  Much of the code in the repo is theirs, though I plan to clean it up and synthesize it better when I have more time.&lt;/p&gt;
+
+&lt;p&gt;#Implementation&lt;/p&gt;
+
+&lt;p&gt;##MTA Data&lt;/p&gt;
+
+&lt;p&gt;The MTA data is freely available from the MTA website.  The data is organized by week, with the startdate of the week being used in the page url.  This structure allows one to scrape multiple weeks using code of the form:&lt;/p&gt;
+
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;scrape&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;week_nums&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;url&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;http://web.mta.info/developers/data/nyct/turnstile/turnstile_{}.txt&quot;&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;dfs&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[]&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;week_num&lt;/span&gt; &lt;span class=&quot;ow&quot;&gt;in&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;week_nums&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;file_url&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;url&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;format&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;week_num&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;dfs&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;append&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;pd&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;read_csv&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;file_url&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;pd&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;concat&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;dfs&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Here, ‘week_nums’ is a list of properly formatted week numbers we’ve generated using the python datetime module.&lt;/p&gt;
+
+&lt;p&gt;Since there is quiet a bit of data on this site we should be a bit selective about how we scrape.  We are only interested in one particular month, the month before the gala, and so we could only scrape that month in some number of years.  In fact, this is what I tried at first.  Unfortunately, that led to an annoying problem. It turns out that the data only contains information about the cumulative number of exits up to a given time.  The easiest way to get the flux is to apply a .diff operatoin on a pandas dataframe.  However, if we have rows separated by a whole year the .diff will give an anomolously large value, which we will then have to figure out what to do with.&lt;/p&gt;
+
+&lt;p&gt;An easier way to deal with this is to scrape 3 months for each year, the month you care about and the months preceding and following.  Then, apply diff and drop the two extra months.  This will leave us with better data and we won’t have to scrape everything.  (Of course, we really just need two extra weeks, not two extra months.)&lt;/p&gt;
+
+&lt;p&gt;After scraping the data we want to process it into a useful form.  We want to optimate ‘flier acceptance likelihood’ and there are two independent variables ‘place’ (MTA station) and ‘time’.  Obviously, we don’t want to just optimize both ‘place’ and ‘time’ simultaneously since then we will only have one place to go at one time per week.  So, what do we want to do? Maybe optimize  ‘time’ when averaging over ‘place’ or ‘place’ averaging over ‘time’?  Or, should we optimize one and then the other, or visa versa???&lt;/p&gt;
+
+&lt;p&gt;Of course, it is good to do all these things, but, we should keep in mind that time is really the most valuable commodity here.  The ‘time’ is really fixed by the volunteers schedules.  There are perhaps many potential volunteers who can only help at particular times.  Perhaps there are others that are free.  However, we get a huge benefit from bringing in volunteers whom otherwise would not be available.  And, when they are avaiable, we should be able to determine the best station.  Thus, what we really want is a function that reports back the best subway station as a function of time.&lt;/p&gt;
+
+&lt;p&gt;This is implemented in the ‘Clean_and_Process.ipynb’ file in the function ‘activity_by_time’.  For the purpose of making maps, however, we just want to take some stations that ‘on average’ are the best.  This list is constructed in ‘clean_df_cum’.  Specifically, we focus on the afternoon to avoid trapping too many people on their way to work.&lt;/p&gt;
+
+&lt;p&gt;The final results are heavily centered around Broadway, Times Square, etc.  A natural worry is that these are tourist and not likely to join the gala.  If there were more time this issue could be investigated further.&lt;/p&gt;
+
+&lt;p&gt;##Maps&lt;/p&gt;
+
+&lt;p&gt;As mentioned, the googleplaces api allows us to easily search for places based on a keyword.  To use this, we need to register and get a key:&lt;/p&gt;
+
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;n&quot;&gt;API_KEYAPI_KEY&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;input&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;google_places&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;GooglePlaces&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;API_KEY&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;gmaps&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;googlemaps&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Client&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;key&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;API_KEY&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;These functions are very user friendly since they allows us to type in normal English.  If you want the list of American restaurants with 3200m of Shenzhen, China for instance&lt;/p&gt;
+
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;n&quot;&gt;query_result&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;google_places&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;nearby_search&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;location&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'Shenzhen, China'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;keyword&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'American Restaurant'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;radius&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;3200&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;We want a list of Starbucks instead.&lt;/p&gt;
+
+&lt;p&gt;We can also use this method on the most popular MTA stations determined above.  Googleplaces allows us to get geojson codes for the stations, which can be fed into geopandas.  Overlaying this on a map showing gender percentages we get:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;https://drive.google.com/uc?id=14TJGSCWEjuv5xRmt7oAkgR_IrdiWZY3i&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;##Final Scores&lt;/p&gt;
+
+&lt;p&gt;Combining the various datasets we get a final score.  The choice of function used to combine these datasets if fairly arbitrary.  Ideally, more time would have been spent in deciding how to combine the various factors.  Oh well.  I have no more time to continue.  I hope you liked reading this.  Signing off.&lt;/p&gt;
+</content>
+ </entry>
+ 
+ <entry>
+   <title>Introduction</title>
+   <link href="http://localhost:4000/2016/01/03/introduction/"/>
+   <updated>2016-01-03T00:00:00-08:00</updated>
+   <id>http://localhost:4000/2016/01/03/introduction</id>
+   <content type="html">&lt;p&gt;&lt;em&gt;The Strange Case of Dr. Jekyll and Mr. Hyde&lt;/em&gt; tells the story of a lawyer investigating the connection of two persons, Dr. Henry Jekyll and Mr. Edward Hyde. Chief among the novel’s supporting cast is a man by the name of Mr. Poole, Dr. Jekyll’s loyal butler.&lt;/p&gt;
+
+&lt;hr /&gt;
+
+&lt;p&gt;Poole is the butler for &lt;a href=&quot;http://jekyllrb.com&quot;&gt;Jekyll&lt;/a&gt;, the static site generator. It’s designed and developed by &lt;a href=&quot;https://twitter.com/mdo&quot;&gt;@mdo&lt;/a&gt; to provide a clear and concise foundational setup for any Jekyll site. It does so by furnishing a full vanilla Jekyll install with example layouts, pages, posts, and styles.&lt;/p&gt;
+
+&lt;p&gt;There are currently three themes built on Poole:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;&lt;a href=&quot;http://hyde.getpoole.com&quot;&gt;Hyde&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;http://lanyon.getpoole.com&quot;&gt;Lanyon&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;http://enfield.getpoole.com&quot;&gt;Enfield&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Learn more and contribute on &lt;a href=&quot;https://github.com/williamcottrell72&quot;&gt;GitHub&lt;/a&gt;.&lt;/p&gt;
+
+&lt;h3 id=&quot;whats-included&quot;&gt;What’s included&lt;/h3&gt;
+
+&lt;p&gt;Poole is a streamlined Jekyll site designed and built as a foundation for building more meaningful themes. Poole, and every theme built on it like this one, includes the following:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Complete Jekyll setup included (layouts, config, &lt;a href=&quot;/404.html&quot;&gt;404&lt;/a&gt;, &lt;a href=&quot;/atom.xml&quot;&gt;RSS feed&lt;/a&gt;, posts, and &lt;a href=&quot;/about&quot;&gt;example page&lt;/a&gt;)&lt;/li&gt;
+  &lt;li&gt;Mobile friendly design and development&lt;/li&gt;
+  &lt;li&gt;Easily scalable text and component sizing with &lt;code class=&quot;highlighter-rouge&quot;&gt;rem&lt;/code&gt; units in the CSS&lt;/li&gt;
+  &lt;li&gt;Support for a wide gamut of HTML elements&lt;/li&gt;
+  &lt;li&gt;Related posts (time-based, because Jekyll) below each post&lt;/li&gt;
+  &lt;li&gt;Syntax highlighting, courtesy Jekyll’s built-in support for Rouge&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Additional features are available in individual themes.&lt;/p&gt;
+
+&lt;h3 id=&quot;browser-support&quot;&gt;Browser support&lt;/h3&gt;
+
+&lt;p&gt;Poole and its themes are by preference a forward-thinking project. In addition to the latest versions of Chrome, Safari (mobile and desktop), and Firefox, it is only compatible with Internet Explorer 9 and above.&lt;/p&gt;
+
+&lt;h3 id=&quot;download&quot;&gt;Download&lt;/h3&gt;
+
+&lt;p&gt;These themes are developed on and hosted with GitHub. Head to the &lt;a href=&quot;https://github.com/williamcottrell72&quot;&gt;GitHub repository&lt;/a&gt; for downloads, bug reports, and features requests.&lt;/p&gt;
+
+&lt;p&gt;Thanks!&lt;/p&gt;
+</content>
+ </entry>
+ 
+
+</feed>

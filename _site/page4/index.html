@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>
+    
+      Billy Cottrell &middot; A Moderately OK Datascience Blog
+    
+  </title>
+
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="apple-touch-icon-precomposed" sizes="144x144" href="/public/apple-touch-icon-precomposed.png">
+  <link rel="shortcut icon" href="/public/favicon.ico">
+  <link rel="alternate" type="application/atom+xml" title="Billy Cottrell" href="/atom.xml">
+</head>
+
+
+  <body>
+
+    <div class="container content">
+      <header class="masthead">
+        <h3 class="masthead-title">
+          <a href="/" title="Home">Billy Cottrell</a>
+          <small>A Moderately OK Datascience Blog</small>
+        </h3>
+      </header>
+
+      <main>
+        <div class="posts">
+  
+  <article class="post">
+    <h1 class="post-title">
+      <a href="/2018/07/26/MVP/">
+        MVP Summary
+      </a>
+    </h1>
+
+    <time datetime="2018-07-26T00:00:00-07:00" class="post-date">26 Jul 2018</time>
+
+    <h2 id="domain">Domain</h2>
+
+<p>I will be attemptig to calssify Kickstarter projects as successful or failed based on other features of the project.  I have visited the Kickstarter website and am relatively familiar it.  More generally, this project could be viewed as a baby step towards understanding when a business/project is likely to be succesful.</p>
+
+<h2 id="data">Data</h2>
+
+<p>The data I have so far was found on Kaggle.  I also plan to look into other data sources. The dataset of (completed) projects consists of ~45K rows with the following variables</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Variable</th>
+      <th>Type</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Project Id</td>
+      <td>Int</td>
+    </tr>
+    <tr>
+      <td>Name</td>
+      <td>String</td>
+    </tr>
+    <tr>
+      <td>url</td>
+      <td>String</td>
+    </tr>
+    <tr>
+      <td>Category</td>
+      <td>String</td>
+    </tr>
+    <tr>
+      <td>Subcategory</td>
+      <td>String</td>
+    </tr>
+    <tr>
+      <td>Location</td>
+      <td>String</td>
+    </tr>
+    <tr>
+      <td>Status</td>
+      <td>String</td>
+    </tr>
+    <tr>
+      <td>Goal</td>
+      <td>Float</td>
+    </tr>
+    <tr>
+      <td>Pledged</td>
+      <td>Float</td>
+    </tr>
+    <tr>
+      <td>Funded Percentage</td>
+      <td>Float</td>
+    </tr>
+    <tr>
+      <td>Backers</td>
+      <td>Int</td>
+    </tr>
+    <tr>
+      <td>Funded Date</td>
+      <td>datetime</td>
+    </tr>
+    <tr>
+      <td>Levels</td>
+      <td>Int</td>
+    </tr>
+    <tr>
+      <td>Reward Levels</td>
+      <td>String</td>
+    </tr>
+    <tr>
+      <td>Updates</td>
+      <td>Int</td>
+    </tr>
+    <tr>
+      <td>Comments</td>
+      <td>Int</td>
+    </tr>
+    <tr>
+      <td>Duration</td>
+      <td>Int</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="known-unknowns">Known Unknowns</h2>
+
+<p>Many important aspects of the project are not available from the dataset.  These include</p>
+
+<p>1.) Competence / knowledge of project organizers.
+2.) External advertising budget.</p>
+
+<p>There is also data that is available but may be difficult to utilize.  For example, the kickstarter website has verbal descriptions of the data, but profiting from this will require a substantial amount of NLP.  In principle, I could try to utilize this.</p>
+
+  </article>
+  
+</div>
+
+<div class="pagination">
+  
+    <a class="pagination-item older" href="/page5">Older</a>
+  
+  
+    <a class="pagination-item newer" href="/page3">Newer</a>
+  
+</div>
+
+      </main>
+
+      <footer class="footer">
+        <small>
+          &copy; <time datetime="2018-11-23T23:48:17-08:00">2018</time>. All rights reserved.
+        </small>
+      </footer>
+    </div>
+
+    
+  </body>
+</html>

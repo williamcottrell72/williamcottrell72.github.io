@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>
+    
+      TravelApp I - Recommender Systems &middot; Billy Cottrell
+    
+  </title>
+
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="apple-touch-icon-precomposed" sizes="144x144" href="/public/apple-touch-icon-precomposed.png">
+  <link rel="shortcut icon" href="/public/favicon.ico">
+  <link rel="alternate" type="application/atom+xml" title="Billy Cottrell" href="/atom.xml">
+</head>
+
+
+  <body>
+
+    <div class="container content">
+      <header class="masthead">
+        <h3 class="masthead-title">
+          <a href="/" title="Home">Billy Cottrell</a>
+          <small>A Moderately OK Datascience Blog</small>
+        </h3>
+      </header>
+
+      <main>
+        <article class="post">
+  <h1 class="post-title">TravelApp I - Recommender Systems</h1>
+  <time datetime="2018-10-26T00:00:00-07:00" class="post-date">26 Oct 2018</time>
+  <p>In this series of posts I will try and describe some lessons learned while developing a travel app for my final project at the Metis Data Science bootcamp.  This work was done in collaboration with Vivien Tsao - a fellow student - and I will make no attempt to distinguish our respective contributions.</p>
+
+<p>The goal of TravelApp<sup id="fnref:fn-sample_footnote"><a href="#fn:fn-sample_footnote" class="footnote">1</a></sup> is to provide highly personalized travel recommendations for travel itinerary, restaurants, attractions, and local guides.   The basic idea is that the user will provide their travel times, budget, and some ‘preferences’.  We will then generate some recommendations, e.g., “Go check out Alcatraz in the morning, then take a cable car to SF MOMA, finally, spend the evening at the Gregangelo. “</p>
+
+<p>Many components are needed in order for TravelApp to work.  For starters we will need:</p>
+
+<ol>
+  <li>A routine which converts user preferences into scored lists of attractions, restaurants, and guides. This is our Recommender System, or RECSYS.</li>
+  <li>A routine which takes scored lists of attractions, restaurants and guides and produces an ‘optimal’ itinerary.  This component will be referred to as the Itinerary Generator, or, ITINGEN for short.</li>
+</ol>
+
+<p>Here, I will first describe some lessons learned in developing the RECSYS.  Subsequent posts will cover other aspects of this project.  As this is clearly an ambitious and open-ended endeavor, there will likely be many, many more posts coming.  Feel free to join me on this journey and let me know what I’m doing wrong or right along the way!</p>
+
+<h2 id="recommender-systems">Recommender Systems</h2>
+
+<p>The basic idea of a recommender system is that one is given partial data, e.g., how much so-and-so like such-and-such movie, and then one is expected to guess the full set of data, e.g., how much everyone likes every movie.  In our particular case, we have a set of rankings of various attractions provided by users of Trip Adviser.  The data looks something like:</p>
+
+<table>
+    <tr>
+      <th>Name</th>
+      <th>Golden Gate Bridge</th>
+      <th>Alcatraz</th>
+      <th> Gregangelo </th>
+      <th> SF MoMA </th>
+    </tr>
+    <tr>
+      <td>Alice</td>
+      <td>5</td>
+      <td>4</td>
+      <td> <font color="red">?</font> </td>
+      <td> 2 </td>
+    </tr>
+    <tr>
+      <td>Bob</td>
+      <td>4</td>
+      <td><font color="red">?</font></td>
+      <td> 0 </td>
+      <td> <font color="red">?</font> </td>
+    </tr>
+    <tr>
+      <td>Charlie</td>
+      <td>0</td>
+      <td>2</td>
+      <td> 5</td>
+      <td> 4</td>
+    </tr>
+    <tr>
+      <td> Tom </td>
+      <td> <font color="red">?</font> </td>
+      <td> 2 </td>
+      <td> 4 </td>
+      <td> 5 </td>
+    </tr>
+</table>
+
+<p>…and our goal is to produce something like the following:</p>
+
+<table>
+    <tr>
+      <th>Name</th>
+      <th>Golden Gate Bridge</th>
+      <th>Alcatraz</th>
+      <th> Gregangelo </th>
+      <th> SF MoMA </th>
+    </tr>
+    <tr>
+      <td>Alice</td>
+      <td>5</td>
+      <td>4</td>
+      <td> <font color="blue">1</font> </td>
+      <td> 2 </td>
+    </tr>
+    <tr>
+      <td>Bob</td>
+      <td>4</td>
+      <td><font color="blue">4</font></td>
+      <td> 0 </td>
+      <td> <font color="blue">1</font> </td>
+    </tr>
+    <tr>
+      <td>Charlie</td>
+      <td>0</td>
+      <td>2</td>
+      <td> 5</td>
+      <td> 4</td>
+    </tr>
+    <tr>
+      <td> Tom </td>
+      <td> <font color="blue">1</font> </td>
+      <td> 2 </td>
+      <td> 4 </td>
+      <td> 5 </td>
+    </tr>
+</table>
+
+<p>Naively, what we are asked to do makes no sense.  The missing values could a-priori be anything and there is no direct way to derive the correct value to fill in.</p>
+
+<p>However, this should not deter us.   The situation here is no different than what is often encountered in science.  Given some data, we need to develop a model that describes the data.  If the model is not too ad-hoc then we might expect it to generalize well and thus be able to describe new, yet to be seen data.</p>
+
+<p>For the toy example above, we one might suggest the following ‘model’ by looking at the first table.  First, note that for the examples displayed, ‘Golden Gate Bridge’ scores and ‘Alcatraz Scores’ seem to vary together.  Likewise, ‘Gregangelo’ and “SF MoMA” seem to vary together as well.  With no further domain knowledge, one might suggest that there is some hidden feature, “<strong>N</strong>”<sup id="fnref:fn-footnote2"><a href="#fn:fn-footnote2" class="footnote">2</a></sup>, which is positive for the first two attractions and negative for the second two attractions.  Moreover, perhaps there are two kinds of people, those that like the <strong>N</strong> quality, and those who do not.  Thus, what we might do is use the given data to assign a value of <strong>N</strong> to each attraction, and then another number, <strong>A</strong>, for each user, which tells us how much they appreciate the quality <strong>N</strong>.  We would then be led to a model like:</p>
+
+<p><img src="https://latex.codecogs.com/svg.latex?{\color{white}\Large&space;\text{Score}_{u a} = N_{a} A_{u}+b_{u}}" title="LinearAnsatz1" /></p>
+
+<p>Here, <strong>N</strong><sub>a</sub> is the value of <strong>N</strong> for attraction <strong>a</strong>, <strong>A</strong><sub>u</sub> quantifies how much the given user appreciates the feature <strong>N</strong>, and <strong>b</strong><sub>u</sub> is an offset.</p>
+
+<p>Notice what we’ve accomplished.  The original table consisted 16=4x4 degrees of freedom, of which 12 were known.  In contrast, the our linear model contains 12 = 4 +4+4 (from <strong>N</strong><sub>a</sub>, <strong>A</strong><sub>u</sub> and <strong>b</strong><sub>u</sub>) degrees of freedom.  Thus, we have just enough information to fit the the supplied data and make predictions for the unknowns.</p>
+
+<p>In real problems, things are not so simple.  Typically, we can expect:</p>
+
+<ol>
+  <li>A large, sparse table with only a small fraction of entries filled.</li>
+  <li>A larger number of hidden features to play a role.</li>
+  <li>No exact fit of the data for any ‘reasonable’ model.</li>
+  <li>Non-linear relationship between score and hidden features.</li>
+</ol>
+
+<p>So, how do we go about making predictions in a principled way?  Maybe we could try something like:</p>
+
+<p><img src="https://latex.codecogs.com/svg.latex?{\color{white}\Large&space;\text{Score}_{u a} =\sum_{k} N_{ka} A_{ku}+b_{u}}" title="LinearAnsatz2" /></p>
+
+<p>Here, <strong>k</strong> labels the set of ‘hidden features’ and, for instance, <strong>N</strong><sub>ku</sub> labels how much of feature <strong>k</strong> is in attraction <strong>a</strong>.  Our goal is now to determine <strong>N</strong><sub>ku</sub>, <strong>A</strong><sub>ku</sub>, and <strong>b</strong><sub>u</sub> from the data given.  If there are <em>K</em> hidden features, <em>U</em> users, and <em>S</em> sites, then our ansatz has a total of <em>K(S+U) + U</em> variables, which, with appropriate choice of <em>K</em> is much less than the</p>
+
+<p>This ansatz is a good start, but it fails to account for the fact that the ratings are capped at a particular value (5, for Trip Adviser).  We should thus, at least, pass the result through a logistic function.  In other words, we really want something like:</p>
+
+<p><img src="https://latex.codecogs.com/svg.latex?\Large&space;{\color{white}\text{Score}_{u a} \sim \sigma\left(\sum_{k} N_{ka} A_{ku}+b_{u}\right)}" title="SigmaLinearAnsatz" /></p>
+
+<p>This is OK but we can do better.  We should also allow for some non-linear interactions in our ansatz. This will allow for a richer structure of preferences and thus model a more diverse set of users.  Cue the neural network!   A neural network is a simple generalization of the model above. Rather than taking the <strong>N</strong><sub>ku</sub> to represent the raw values of feature <strong>k</strong>, we can allow the <strong>N</strong><sub>ku</sub> to be the output of another <strong><em>layer</em></strong> in the network.  In equations, this is:</p>
+
+<p><img src="https://latex.codecogs.com/svg.latex?\Large&space;{\color{white} N_{k a} \rightarrow \sigma\left(\sum_{\tilde{k}} \tilde{N}_{\tilde{k}k} \tilde{A}_{\tilde{k}a}+\tilde{b}_{a}\right)}" title="AddLayer" /></p>
+
+<p>We are free to iteratively add as many layers as we would like by replacing <strong>N</strong> with a self-similar equation as we did above.  This will give a general feed-forward neural network and we can use our training set and standard machine learning methods to determine the <strong>A</strong> and <strong>b</strong> parameters.</p>
+
+<p>Implementing this in PyTorch is not too difficult. Let’s first define a <strong><em>recsys</em></strong> class that will contain some useful methods.  We’ll keep things simple and just add one extra hidden layer.  I’ll also add a layer called ‘Dropout’ which does exactly what it says - it ignore a random sample of neurons in each training run.  This technique has been demonstrated to prevent over-fitting (See <a href="http://jmlr.org/papers/volume15/srivastava14a.old/srivastava14a.pdf">here</a>.)</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">recsys</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">ratings</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span><span class="n">users</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span><span class="n">sites</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span><span class="n">latent_features</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span>\
+                 <span class="n">dropout</span><span class="o">=</span><span class="mf">.1</span><span class="p">,</span><span class="n">max_iter</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span><span class="n">epochs</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span><span class="n">temperature</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span><span class="n">lr</span><span class="o">=</span><span class="mf">.01</span><span class="p">,</span><span class="n">batch_size</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>\
+                 <span class="n">losses</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+
+        <span class="nb">super</span><span class="p">(</span><span class="n">recsys</span><span class="p">,</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__init__</span><span class="p">()</span>
+
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">users</span><span class="o">=</span><span class="n">users</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sites</span><span class="o">=</span><span class="n">sites</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dropout</span><span class="o">=</span><span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">p</span><span class="o">=</span><span class="n">dropout</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_iter</span><span class="o">=</span><span class="n">max_iter</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lr</span><span class="o">=</span><span class="n">lr</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="o">=</span><span class="n">temperature</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ratings</span><span class="o">=</span><span class="n">ratings</span>
+        <span class="c1"># self.mask=torch.tensor(np.logical_not(np.isnan(ratings)).astype(int)).type(torch.ByteTensor)
+</span>        <span class="bp">self</span><span class="o">.</span><span class="n">losses</span><span class="o">=</span><span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">epochs</span><span class="o">=</span><span class="n">epochs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear1</span><span class="o">=</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">sites</span><span class="p">,</span><span class="n">latent_features</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear2</span><span class="o">=</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">latent_features</span><span class="p">,</span><span class="n">latent_features</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear3</span><span class="o">=</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">latent_features</span><span class="p">,</span><span class="n">sites</span><span class="p">)</span>
+
+</code></pre></div></div>
+<p>Here, <code class="highlighter-rouge">nn.Linear(N,M)</code> is a general linear map from an array of dimension <strong><em>N</em></strong> to one of dimension <strong><em>M</em></strong>.</p>
+
+<p>So far we’ve just defined the variables we need in the network.  Now, we should string them together.  In PyTorch, this is accomplished with a particular function called <code class="highlighter-rouge">forward</code>.  We thus need something like:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">x</span><span class="p">):</span>
+    <span class="n">x</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">linear1</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="nb">float</span><span class="p">())</span>
+    <span class="n">x</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">tanh</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="n">x</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">linear2</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="nb">float</span><span class="p">())</span>
+    <span class="n">x</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dropout</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="nb">float</span><span class="p">())</span>
+    <span class="n">x</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">tanh</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="n">x</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">linear3</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="nb">float</span><span class="p">())</span>
+    <span class="k">return</span> <span class="n">x</span>
+</code></pre></div></div>
+
+<p>The notation is hopefully self-explanatory.  A Torch tensor, <code class="highlighter-rouge">x</code> goes in, gets processed throught the various layers, and then a new tensor comes out.</p>
+
+<p>Finally, we should train our model.  As with Tensorflow, PyTorch supports a back-propogation method, <code class="highlighter-rouge">backward</code> and we merely need to call this function on our loss function <sup id="fnref:fn-footnote3"><a href="#fn:fn-footnote3" class="footnote">3</a></sup>.  Crudely speaking, this operation determines the infinitesimal dependence of the loss function on all the weights showing up in the network.  After calling <code class="highlighter-rouge">backward</code>, we can then do <code class="highlighter-rouge">optimizer.step()</code> in order to take one step down the loss function.  The optimizer chosen below is <a href="https://arxiv.org/abs/1412.6980">Adam</a>.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">ratings</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+
+
+    <span class="n">f</span><span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="s">'raw_data/losses'</span><span class="p">,</span><span class="s">'w+'</span><span class="p">)</span>
+
+    <span class="n">losses</span><span class="o">=</span><span class="p">[]</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">epochs</span><span class="o">+</span><span class="mi">1</span><span class="p">):</span>
+
+        <span class="n">optimizer</span> <span class="o">=</span> <span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span><span class="n">lr</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">lr</span><span class="o">/</span><span class="n">i</span><span class="p">)</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">f</span><span class="s">'Epoch {i}'</span><span class="p">)</span>
+
+        <span class="n">sample_indices</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">ratings</span><span class="p">)),</span><span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span><span class="p">,</span><span class="n">replace</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+        <span class="n">sample</span><span class="o">=</span><span class="n">ratings</span><span class="p">[</span><span class="n">sample_indices</span><span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">max_iter</span><span class="p">):</span>
+            <span class="n">optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span><span class="n">sample</span><span class="p">)</span>
+            <span class="n">loss</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">custom_loss</span><span class="p">(</span><span class="n">out</span><span class="p">,</span><span class="n">sample</span><span class="p">)</span>
+            <span class="n">losses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">loss</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()))</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">loss</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">())</span><span class="o">+</span><span class="s">','</span><span class="p">)</span>
+            <span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">(</span><span class="n">retain_graph</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+            <span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">losses</span><span class="o">=</span><span class="n">losses</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lr</span><span class="o">=</span><span class="mf">.7</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">lr</span>
+    <span class="n">f</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</code></pre></div></div>
+
+<p>A couple of notes about this code.  Notice that there are two <code class="highlighter-rouge">for</code> loops.  The outer loop is known as an <code class="highlighter-rouge">epoch</code>.  For each epoch we select a new batch of training data randomly.  The inner loop is merely going down the slope for a given batch of data.  Using two loops in this manner allows the network to see all of the data and helps fight against over-fitting.</p>
+
+<p>And that’s about it for creating a crude recommendation system!  Note that we have logged the losses for later inspection.  The loss function for a typical training run ends up looking like this:</p>
+
+<p><img src="https://drive.google.com/uc?id=1coOdHbtKMSbJK6xTmcI_IjaxUlylsBNF" /></p>
+
+<p>The large increases represent new batches.  What this shows is a rapid <code class="highlighter-rouge">learning</code> occurring within each batch, but this is largely illusory since the loss function increases again when new data is seen.  What we should really be tracking is the beginning of each batch, which acts like a test set.  Focusing on this we do see slow but steady progress.</p>
+
+<p>In order to use the now trained model, we simply use:</p>
+
+<p><code class="highlighter-rouge">recsys(new_rating)</code></p>
+
+<p>This will produce a vector of size <code class="highlighter-rouge">sites</code> representing the rankings.</p>
+
+<p>Next up, we’ll discuss a few simple changes which will dramatically improve this model.  We’ll also address the <code class="highlighter-rouge">cold start problem</code>.  How do we make predictions on Day 1 without already having a massive dataset?</p>
+
+<div class="footnotes">
+  <ol>
+    <li id="fn:fn-sample_footnote">
+      <p>Yes, the name could use some work. <a href="#fnref:fn-sample_footnote" class="reversefootnote">&#8617;</a></p>
+    </li>
+    <li id="fn:fn-footnote2">
+      <p>With domain knowledge, we could say that <strong>N</strong> secretely stands for Nature. <a href="#fnref:fn-footnote2" class="reversefootnote">&#8617;</a></p>
+    </li>
+    <li id="fn:fn-footnote3">
+      <p>This may either be a built in or custom loss function. <a href="#fnref:fn-footnote3" class="reversefootnote">&#8617;</a></p>
+    </li>
+  </ol>
+</div>
+
+</article>
+
+
+<aside class="related">
+  <h3>Related posts</h3>
+  <ul class="related-posts">
+    
+      <li>
+        <a href="/2018/11/22/TravelApp_2/">
+          TravelApp II - Cold Start Problem
+          <small><time datetime="2018-11-22T00:00:00-08:00">22 Nov 2018</time></small>
+        </a>
+      </li>
+    
+      <li>
+        <a href="/2018/11/21/GCloud+Tensorboard/">
+          Google CLoud Computing with Tensorboard
+          <small><time datetime="2018-11-21T00:00:00-08:00">21 Nov 2018</time></small>
+        </a>
+      </li>
+    
+      <li>
+        <a href="/2018/07/26/MVP/">
+          MVP Summary
+          <small><time datetime="2018-07-26T00:00:00-07:00">26 Jul 2018</time></small>
+        </a>
+      </li>
+    
+  </ul>
+</aside>
+
+
+      </main>
+
+      <footer class="footer">
+        <small>
+          &copy; <time datetime="2018-11-23T23:48:17-08:00">2018</time>. All rights reserved.
+        </small>
+      </footer>
+    </div>
+
+    
+  </body>
+</html>

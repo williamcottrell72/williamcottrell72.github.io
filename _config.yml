@@ -1,0 +1,39 @@
+# Permalinks
+permalink:           pretty
+
+# Setup
+title:               Billy Cottrell
+tagline:             A Moderately OK Datascience Blog
+url:                 http://williamcottrell72.github.io/
+paginate:            1
+baseurl:             ""
+
+# Assets
+#
+# We specify the directory for Jekyll so we can use @imports.
+sass:
+  sass_dir:          _sass
+  style:            :compressed
+
+# About/contact
+author:
+  name:              William Cottrell
+  # url:               https://twitter.com/mdo
+  email:             williamcottrell72@gmail.com
+
+# Custom vars
+version:             3.0.0
+github:
+  repo:              https://github.com/williamcottrell72
+
+
+pages_list:
+  About: '/about'
+  Archive: '/archive'
+  Reads: '/goodreads'
+  Feed: '/index.html'
+
+# Gems
+plugins:
+  - jekyll-paginate
+  - jekyll-gist
