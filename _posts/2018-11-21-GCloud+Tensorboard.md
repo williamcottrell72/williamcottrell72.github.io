@@ -6,9 +6,9 @@ image: assets/images/tb.png
 ---
 
 
-In today's post I'm going to describe how to set up Tensorboard on google cloud so that you can monitor your deep learning progress with ease.  For the neophytes reading this, Tensorboard is an application that comes with Tensorflow and it allows you to visualize key metrics that are logged while the training is in progress.  The result is served on port 6006 of the 'local' browser and looks something like the picture above.
-<!--
-<img src="https://drive.google.com/uc?id=1gPpKJsJA93PPs-etLmTmhoTo1UyZTSy6" alt="Hope this works!"> -->
+In today's post I'm going to describe how to set up Tensorboard on google cloud so that you can monitor your deep learning progress with ease.  For the neophytes reading this, Tensorboard is an application that comes with Tensorflow and it allows you to visualize key metrics that are logged while the training is in progress.  The result is served on port 6006 of the 'local' browser and looks something like the picture below.
+
+<img src="https://drive.google.com/uc?id=1gPpKJsJA93PPs-etLmTmhoTo1UyZTSy6" alt="Hope this works!">
 
 
 In this example, the cross-entropy is displayed.  We can, however, collect and display any statistic from the learning process we want, as well as the graph of the network.  

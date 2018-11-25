@@ -52,6 +52,8 @@ nav-menu: true
 
 [Open CV](https://www.learnopencv.com/)
 
+[Deep Learning Book](https://www.deeplearningbook.org/)
+
 [List of Resources](https://medium.com/machine-learning-in-practice/my-curated-list-of-ai-and-machine-learning-resources-from-around-the-web-9a97823b8524)
 
 [Other Blogs](https://calculatedcontent.com/2015/03/25/why-does-deep-learning-work/)

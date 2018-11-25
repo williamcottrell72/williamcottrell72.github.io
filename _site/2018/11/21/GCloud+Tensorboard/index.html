@@ -15,7 +15,17 @@
   <link rel="apple-touch-icon-precomposed" sizes="144x144" href="/public/apple-touch-icon-precomposed.png">
   <link rel="shortcut icon" href="/public/favicon.ico">
   <link rel="alternate" type="application/atom+xml" title="Billy Cottrell" href="/atom.xml">
+  <script type="text/javascript" src="http://latex.codecogs.com/latexit.js"></script>
 </head>
+
+<!--[if lte IE 7]>
+<link rel="stylesheet" href="http://latex.codecogs.com/css/ie6.css" type="text/css"/>
+<![endif]-->
+  <!-- <link rel="stylesheet" type="text/css" href="http://latex.codecogs.com/css/equation-embed.css" />
+  <script type="text/javascript"
+    src="http://latex.codecogs.com/js/eq_config.js" ></script>
+  <script type="text/javascript"
+    src="http://latex.codecogs.com/js/eq_editor-lite-19.js" ></script> -->
 
 
   <body>
@@ -40,14 +50,16 @@
           
         </h3>
       </header>
+      
+	    
 
       <main>
         <article class="post">
   <h1 class="post-title">Google CLoud Computing with Tensorboard</h1>
   <time datetime="2018-11-21 00:00:00 -0800" class="post-date">2018-11-21 00:00:00 -0800</time>
-  <p>In today’s post I’m going to describe how to set up Tensorboard on google cloud so that you can monitor your deep learning progress with ease.  For the neophytes reading this, Tensorboard is an application that comes with Tensorflow and it allows you to visualize key metrics that are logged while the training is in progress.  The result is served on port 6006 of the ‘local’ browser and looks something like the picture above.
-<!--
-<img src="https://drive.google.com/uc?id=1gPpKJsJA93PPs-etLmTmhoTo1UyZTSy6" alt="Hope this works!"> --></p>
+  <p>In today’s post I’m going to describe how to set up Tensorboard on google cloud so that you can monitor your deep learning progress with ease.  For the neophytes reading this, Tensorboard is an application that comes with Tensorflow and it allows you to visualize key metrics that are logged while the training is in progress.  The result is served on port 6006 of the ‘local’ browser and looks something like the picture below.</p>
+
+<p><img src="https://drive.google.com/uc?id=1gPpKJsJA93PPs-etLmTmhoTo1UyZTSy6" alt="Hope this works!" /></p>
 
 <p>In this example, the cross-entropy is displayed.  We can, however, collect and display any statistic from the learning process we want, as well as the graph of the network.</p>
 
@@ -130,10 +142,17 @@
 
       <footer class="footer">
         <small>
-          &copy; <time datetime="2018-11-24T01:22:48-08:00">2018</time>. All rights reserved.
+          &copy; <time datetime="2018-11-24T19:18:43-08:00">2018</time>. All rights reserved.
         </small>
       </footer>
     </div>
+
+
+
+
+
+
+
 
     
   </body>

@@ -4,7 +4,7 @@
  <title>Billy Cottrell</title>
  <link href="http://localhost:4000/atom.xml" rel="self"/>
  <link href="http://localhost:4000/"/>
- <updated>2018-11-24T01:22:48-08:00</updated>
+ <updated>2018-11-24T19:18:43-08:00</updated>
  <id>http://localhost:4000</id>
  <author>
    <name>William Cottrell</name>
@@ -94,9 +94,9 @@
    <link href="http://localhost:4000/2018/11/21/GCloud+Tensorboard/"/>
    <updated>2018-11-21T00:00:00-08:00</updated>
    <id>http://localhost:4000/2018/11/21/GCloud+Tensorboard</id>
-   <content type="html">&lt;p&gt;In today’s post I’m going to describe how to set up Tensorboard on google cloud so that you can monitor your deep learning progress with ease.  For the neophytes reading this, Tensorboard is an application that comes with Tensorflow and it allows you to visualize key metrics that are logged while the training is in progress.  The result is served on port 6006 of the ‘local’ browser and looks something like the picture above.
-&lt;!--
-&lt;img src=&quot;https://drive.google.com/uc?id=1gPpKJsJA93PPs-etLmTmhoTo1UyZTSy6&quot; alt=&quot;Hope this works!&quot;&gt; --&gt;&lt;/p&gt;
+   <content type="html">&lt;p&gt;In today’s post I’m going to describe how to set up Tensorboard on google cloud so that you can monitor your deep learning progress with ease.  For the neophytes reading this, Tensorboard is an application that comes with Tensorflow and it allows you to visualize key metrics that are logged while the training is in progress.  The result is served on port 6006 of the ‘local’ browser and looks something like the picture below.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;https://drive.google.com/uc?id=1gPpKJsJA93PPs-etLmTmhoTo1UyZTSy6&quot; alt=&quot;Hope this works!&quot; /&gt;&lt;/p&gt;
 
 &lt;p&gt;In this example, the cross-entropy is displayed.  We can, however, collect and display any statistic from the learning process we want, as well as the graph of the network.&lt;/p&gt;
 
@@ -251,7 +251,11 @@
 
 &lt;p&gt;For the toy example above, we one might suggest the following ‘model’ by looking at the first table.  First, note that for the examples displayed, ‘Golden Gate Bridge’ scores and ‘Alcatraz Scores’ seem to vary together.  Likewise, ‘Gregangelo’ and “SF MoMA” seem to vary together as well.  With no further domain knowledge, one might suggest that there is some hidden feature, “&lt;strong&gt;N&lt;/strong&gt;”&lt;sup id=&quot;fnref:fn-footnote2&quot;&gt;&lt;a href=&quot;#fn:fn-footnote2&quot; class=&quot;footnote&quot;&gt;2&lt;/a&gt;&lt;/sup&gt;, which is positive for the first two attractions and negative for the second two attractions.  Moreover, perhaps there are two kinds of people, those that like the &lt;strong&gt;N&lt;/strong&gt; quality, and those who do not.  Thus, what we might do is use the given data to assign a value of &lt;strong&gt;N&lt;/strong&gt; to each attraction, and then another number, &lt;strong&gt;A&lt;/strong&gt;, for each user, which tells us how much they appreciate the quality &lt;strong&gt;N&lt;/strong&gt;.  We would then be led to a model like:&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&quot;https://latex.codecogs.com/svg.latex?{\color{white}\Large&amp;space;\text{Score}_{u a} = N_{a} A_{u}+b_{u}}&quot; title=&quot;LinearAnsatz1&quot; /&gt;&lt;/p&gt;
+&lt;!-- &lt;div lang=&quot;latex&quot;&gt;
+{\Large \text{Score}_{u a} = N_{a} A_{u}+b_{u}}
+&lt;/div&gt; --&gt;
+
+&lt;p&gt;&lt;img src=&quot;https://latex.codecogs.com/svg.latex?\Large&amp;space;\text{Score}_{u a} = N_{a} A_{u}+b_{u}&quot; title=&quot;LinearAnsatz1&quot; /&gt;&lt;/p&gt;
 
 &lt;p&gt;Here, &lt;strong&gt;N&lt;/strong&gt;&lt;sub&gt;a&lt;/sub&gt; is the value of &lt;strong&gt;N&lt;/strong&gt; for attraction &lt;strong&gt;a&lt;/strong&gt;, &lt;strong&gt;A&lt;/strong&gt;&lt;sub&gt;u&lt;/sub&gt; quantifies how much the given user appreciates the feature &lt;strong&gt;N&lt;/strong&gt;, and &lt;strong&gt;b&lt;/strong&gt;&lt;sub&gt;u&lt;/sub&gt; is an offset.&lt;/p&gt;
 
@@ -268,17 +272,17 @@
 
 &lt;p&gt;So, how do we go about making predictions in a principled way?  Maybe we could try something like:&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&quot;https://latex.codecogs.com/svg.latex?{\color{white}\Large&amp;space;\text{Score}_{u a} =\sum_{k} N_{ka} A_{ku}+b_{u}}&quot; title=&quot;LinearAnsatz2&quot; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;https://latex.codecogs.com/svg.latex?{\Large&amp;space;\text{Score}_{u a} =\sum_{k} N_{ka} A_{ku}+b_{u}}&quot; title=&quot;LinearAnsatz2&quot; /&gt;&lt;/p&gt;
 
 &lt;p&gt;Here, &lt;strong&gt;k&lt;/strong&gt; labels the set of ‘hidden features’ and, for instance, &lt;strong&gt;N&lt;/strong&gt;&lt;sub&gt;ku&lt;/sub&gt; labels how much of feature &lt;strong&gt;k&lt;/strong&gt; is in attraction &lt;strong&gt;a&lt;/strong&gt;.  Our goal is now to determine &lt;strong&gt;N&lt;/strong&gt;&lt;sub&gt;ku&lt;/sub&gt;, &lt;strong&gt;A&lt;/strong&gt;&lt;sub&gt;ku&lt;/sub&gt;, and &lt;strong&gt;b&lt;/strong&gt;&lt;sub&gt;u&lt;/sub&gt; from the data given.  If there are &lt;em&gt;K&lt;/em&gt; hidden features, &lt;em&gt;U&lt;/em&gt; users, and &lt;em&gt;S&lt;/em&gt; sites, then our ansatz has a total of &lt;em&gt;K(S+U) + U&lt;/em&gt; variables, which, with appropriate choice of &lt;em&gt;K&lt;/em&gt; is much less than the&lt;/p&gt;
 
 &lt;p&gt;This ansatz is a good start, but it fails to account for the fact that the ratings are capped at a particular value (5, for Trip Adviser).  We should thus, at least, pass the result through a logistic function.  In other words, we really want something like:&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&quot;https://latex.codecogs.com/svg.latex?\Large&amp;space;{\color{white}\text{Score}_{u a} \sim \sigma\left(\sum_{k} N_{ka} A_{ku}+b_{u}\right)}&quot; title=&quot;SigmaLinearAnsatz&quot; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;https://latex.codecogs.com/svg.latex?\Large&amp;space;{\text{Score}_{u a} \sim \sigma\left(\sum_{k} N_{ka} A_{ku}+b_{u}\right)}&quot; title=&quot;SigmaLinearAnsatz&quot; /&gt;&lt;/p&gt;
 
 &lt;p&gt;This is OK but we can do better.  We should also allow for some non-linear interactions in our ansatz. This will allow for a richer structure of preferences and thus model a more diverse set of users.  Cue the neural network!   A neural network is a simple generalization of the model above. Rather than taking the &lt;strong&gt;N&lt;/strong&gt;&lt;sub&gt;ku&lt;/sub&gt; to represent the raw values of feature &lt;strong&gt;k&lt;/strong&gt;, we can allow the &lt;strong&gt;N&lt;/strong&gt;&lt;sub&gt;ku&lt;/sub&gt; to be the output of another &lt;strong&gt;&lt;em&gt;layer&lt;/em&gt;&lt;/strong&gt; in the network.  In equations, this is:&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&quot;https://latex.codecogs.com/svg.latex?\Large&amp;space;{\color{white} N_{k a} \rightarrow \sigma\left(\sum_{\tilde{k}} \tilde{N}_{\tilde{k}k} \tilde{A}_{\tilde{k}a}+\tilde{b}_{a}\right)}&quot; title=&quot;AddLayer&quot; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;https://latex.codecogs.com/svg.latex?\Large&amp;space;{ N_{k a} \rightarrow \sigma\left(\sum_{\tilde{k}} \tilde{N}_{\tilde{k}k} \tilde{A}_{\tilde{k}a}+\tilde{b}_{a}\right)}&quot; title=&quot;AddLayer&quot; /&gt;&lt;/p&gt;
 
 &lt;p&gt;We are free to iteratively add as many layers as we would like by replacing &lt;strong&gt;N&lt;/strong&gt; with a self-similar equation as we did above.  This will give a general feed-forward neural network and we can use our training set and standard machine learning methods to determine the &lt;strong&gt;A&lt;/strong&gt; and &lt;strong&gt;b&lt;/strong&gt; parameters.&lt;/p&gt;
 
