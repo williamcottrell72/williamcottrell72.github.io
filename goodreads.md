@@ -28,6 +28,8 @@ nav-menu: true
 
 [Spin Glasses](https://arxiv.org/abs/cond-mat/0505032)
 
+[Stat Mech and ML](https://arxiv.org/pdf/1709.02470.pdf)
+
 
 <h2> <font color="black"> Algorithms </font> </h2>
 
@@ -57,3 +59,5 @@ nav-menu: true
 [List of Resources](https://medium.com/machine-learning-in-practice/my-curated-list-of-ai-and-machine-learning-resources-from-around-the-web-9a97823b8524)
 
 [Other Blogs](https://calculatedcontent.com/2015/03/25/why-does-deep-learning-work/)
+
+[Algorithms](https://github.com/keon/algorithms)
