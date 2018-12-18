@@ -8,12 +8,13 @@ Today I would like to explore the relationship between machine learning and spin
 
 The incredibly large memory of these systems can be confounding from an analytic perspective.  We are used to thinking about dynamical systems in terms of energy, i.e., an energy landscape, etc.  Ordinary thermodynamics then tells us that the probability of finding the system in a state 'i' is given by:
 
-<div lang="latex">
-\begingroup
-\Large
- P_{i} \sim e^{-\beta E_{i}}
-\endgroup
-</div>
+<!-- <div lang="latex">
+\begingroup -->
+$$
+P_{i} \sim e^{-\beta E_{i}}
+$$
+<!-- \endgroup
+</div> -->
 
 Thus, higher energy means less probable. However, this is not a very good picture when it comes to glasses.  The issue is that the sheer number of excited states means that it is generically more likely to be in one of these.  Fortunately, many of these excited states are basically idential for all practical purposes.  Similar statements apply to machine learning.  For instance, when doing SGD, you won't necessarily find the true global minimum, in fact, you could find any one of "nearby" similar minimum that all behave nearly the same way.   This is good, otherwise machine learning would not work.
 

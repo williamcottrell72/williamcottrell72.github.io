@@ -51,7 +51,7 @@ Again, the port mapping technique is not specific to Tensorboard and is useful f
 gcloud compute ssh instance_name \
   --project project_id \
   --zone zone_name \
-  -- -NL 1111:localhost:6060
+  -- -NL 1111:localhost:8080
 ```
 
 Of course, we also need to pick an unoccupied port for our local browser!

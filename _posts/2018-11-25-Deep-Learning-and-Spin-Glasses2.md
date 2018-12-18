@@ -40,7 +40,8 @@ $$
 <p>Let's consider the effect in going from layer \(n\) to layer \(n+1\).  We have an integral like </p>
 
 $$
-P^{n+1}_{cg}\left(\mathbf{W}^{i}_{i>n} \right) \equiv \int d\mathbf{W}^{n} P^{n}_{cg}\left(\mathbf{W}_{i\ge n}\right)
+P^{n+1}_{cg}\left(\mathbf{W}^{i}_{i>n} \right) \equiv \int d\mathbf{W}^{n} P^{n}_{cg}\left(\mathbf{W}_{i\ge n}\right) \\
+= \int d\mathbf{W}d
 $$
 
 
