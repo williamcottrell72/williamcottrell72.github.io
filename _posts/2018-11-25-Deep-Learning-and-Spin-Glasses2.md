@@ -37,13 +37,20 @@ $$
 
 <p>Now, the input distribution of data is like \(P_{0}(X)\) but, from the perspective of the second layer, the output of layer one is just some new distribution of inputs.  So, the game is to figure out what the effective distribution of inputs is for the second, third and fourth layer and so on.  What we are actually after is some kind of differential equation that tells us how the effective distribution on \(X\) evolves as we move down the network.  </p>
 
-<p>Let's consider the effect in going from layer \(n\) to layer \(n+1\).  First, suppose that the effective distribution at the \(n'th\) layer is \(P_{n}(\mathbf{X}_{n})\).  Let's also include a regulator term \(R(\mathbf{W})\) at this stage for reasons that will soon be clear.  We can modify our previous integral as follows: </p>
+<p>Let's consider the effect in going from layer \(n\) to layer \(n+1\).  First, suppose that the effective distribution at the \(n'th\) layer is \(P_{n}(\mathbf{X}_{n})\).  Let's also include a regulator term \(R(\mathbf{W})=\sum_{n,i,j} \alpha_{n}(W^{n}_{ij})^{2}\) at this stage for reasons that will soon be clear.  We can modify our previous integral as follows: </p>
 
 $$
-P_{cg}\left(\vec{W}\right) \sim \int \mathcal{D}\mathbf{W}_{>n+1}\mathcal{D}\mathbf{W}_{n+1}\int \mathcal{D}\mathbf{X}_{n}\int\mathcal{D}\mathbf{X}_{n+1}\delta\left(\mathbf{X}_{n+1}-\sigma(\mathbf{W}\circ)\mathbf{X}_{n}\right)\delta\left(\langle\mathbf{W}_{>n+1}\rangle_{L}-\vec{W}_{>n+1}\right)
+P_{cg}\left(\vec{W}\right) &\sim& \int \mathcal{D}\mathbf{W}_{>n+1}\mathcal{D}\mathbf{W}_{n+1}\int \mathcal{D}\mathbf{X}_{n}\int\mathcal{D}\mathbf{X}_{n+1}\delta\left(\mathbf{X}_{n+1}-\sigma(\mathbf{W}_{n+1}\circ)\mathbf{X}_{n}\right)\delta\left(\langle\mathbf{W}_{>n+1}\rangle_{L}-\vec{W}_{>n+1}\right) \\
+&\times& P_{n}(\mathbf{X}_{n})e^{-\beta H_{h-n-1}(\mathbf{X}_{n+1})-R(W)}
 $$
 
+<p>We can now recognize the the effective change in \(P\) as: </p>
 
+$$
+P_{n+1}(\mathbf{X}_{n+1}) = \int\mathcal{D} \mathbf{W}_{n+1}\mathcal{D}\mathbf{X}_{n}\delta\left(\mathbf{X}_{n+1}-\sigma(\mathbf{W}_{n+1}\circ)X_{n}\right)e^{-\alpha_{n+1}\sum_{i,j}(\mathbf{W}_{n+1}_{ij})^{2}}P_{n}(\mathbf{X}_{n})
+$$
+
+<p> Now we actually need to do some math! </p>
 
 $$
 P^{n+1}_{cg}\left(\mathbf{W}^{i}_{i>n} \right) \equiv \int d\mathbf{W}^{n} P^{n}_{cg}\left(\mathbf{W}_{i\ge n}\right) \\
