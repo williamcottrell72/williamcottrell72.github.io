@@ -40,8 +40,8 @@ $$
 <p>Let's consider the effect in going from layer \(n\) to layer \(n+1\).  First, suppose that the effective distribution at the \(n'th\) layer is \(P_{n}(\mathbf{X}_{n})\).  Let's also include a regulator term \(R(\mathbf{W})=\sum_{n,i,j} \alpha_{n}(W^{n}_{ij})^{2}\) at this stage for reasons that will soon be clear.  We can modify our previous integral as follows: </p>
 
 $$
-P_{cg}\left(\vec{W}\right) &\sim& \int \mathcal{D}\mathbf{W}_{>n+1}\mathcal{D}\mathbf{W}_{n+1}\int \mathcal{D}\mathbf{X}_{n}\int\mathcal{D}\mathbf{X}_{n+1}\delta\left(\mathbf{X}_{n+1}-\sigma(\mathbf{W}_{n+1}\circ)\mathbf{X}_{n}\right)\delta\left(\langle\mathbf{W}_{>n+1}\rangle_{L}-\vec{W}_{>n+1}\right) \\
-&\times& P_{n}(\mathbf{X}_{n})e^{-\beta H_{h-n-1}(\mathbf{X}_{n+1})-R(W)}
+P_{cg}\left(\vec{W}\right) &\sim& \int \mathcal{D} \mathbf{W}_{>n+1} \mathcal{D}\mathbf{W}_{n+1}\int \mathcal{D}\mathbf{X}_{n}\int\mathcal{D}\mathbf{X}_{n+1}\delta\left(\mathbf{X}_{n+1}-\sigma(\mathbf{W}_{n+1}\circ)\mathbf{X}_{n}\right)\delta\left(\langle\mathbf{W}_{>n+1}\rangle_{L}-\vec{W}_{>n+1}\right) \\
+&\times& P_{n}(\mathbf{X}_{n})
 $$
 
 <p>We can now recognize the the effective change in \(P\) as: </p>

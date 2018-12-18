@@ -38,6 +38,9 @@ nav-menu: true
 
 [Emperical Study of Naive Bayes Classifier](https://www.cc.gatech.edu/~isbell/reading/papers/Rish.pdf)
 
+<h2> <font color="black"> Repos </font> </h2>
+
+[Awesome GAN Examples](https://github.com/nashory/gans-awesome-applications)
 
 <h2> <font color="black"> Resources </font> </h2>
 
