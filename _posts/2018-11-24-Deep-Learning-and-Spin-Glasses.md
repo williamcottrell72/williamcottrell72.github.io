@@ -79,7 +79,7 @@ P(\mathbf{W}) = \int \mathcal{D}\mathbf{X}  e^{-\beta H}
 = \int \prod_{i}^{\tilde{n}} d\vec{x}^{i} e^{-\beta\sum_{i} h(\mathbf{W},\vec{x}^{i})}
 $$
 
-<p>where \(h\) is some loss function like a squared error </p>.  Now, it is the training data that is playing the role of a replica!  However, unlike the previous situation where this was just a trick to compute the average of a log and we wanted to take \(n\rightarrow 0\), here, \(\tilde{n}\) is typically a fixed number throughout the computation. This may be useful later...</p>
+<p>where \(h\) is some loss function like a squared error.  Now, it is the training data that is playing the role of a replica!  However, unlike the previous situation where this was just a trick to compute the average of a log and we wanted to take \(n\rightarrow 0\), here, \(\tilde{n}\) is typically a fixed number throughout the computation. This may be useful later...</p>
 
 <p id="xnote"><a href="#return_xnote">[1]</a> I'm using the notation \( \mathbf{X}\) to denote the features as well as the labels.</p>
 <!-- $$

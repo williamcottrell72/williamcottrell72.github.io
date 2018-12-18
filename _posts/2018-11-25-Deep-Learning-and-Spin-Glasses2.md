@@ -24,10 +24,10 @@ $$
 <p> In order to proceed, let's write the Hamiltonian schematically as:</p>
 
 $$
-H(\mathbf{W},\mathbf{X})=\frac{1}{|\mathbf{X}|}\sum_{1\le i\le |\mathbf{X}|} \left(x^{i}_{0}-\left(\sigma(\mathbf{W} \circ)\right)^{H}\vec{x}^{i}\right)^{2}
+H_{h}(\mathbf{W},\mathbf{X})=\frac{1}{|\mathbf{X}|}\sum_{1\le i\le |\mathbf{X}|} \left(x^{i}_{0}-\left(\sigma(\mathbf{W} \circ)\right)^{h}\vec{x}^{i}\right)^{2}
 $$
 
-<p> Here, I've broken up the training data as \(X=(x_{0},\vec{x})\) where \(x_{0}\) plays the role of the label.  I've used a very schematic notation to describe the action of a feed forward network and I'm assuming a MSE loss.  I'm just writing this in order to have a more concrete story, the main ideas I'd like to discuss are tangential to the actual choice of loss function.  </p>
+<p> where \(h\) is the number of layers and I've broken up the training data as \(X=(x_{0},\vec{x})\) where \(x_{0}\) plays the role of the label.  I've used a very schematic notation to describe the action of a feed forward network and I'm assuming a MSE loss.  I'm just writing this in order to have a more concrete story, the main ideas I'd like to discuss are tangential to the actual choice of loss function.  </p>
 
 Let's look more closely at the feed-forward network.  
 
@@ -37,7 +37,13 @@ $$
 
 <p>Now, the input distribution of data is like \(P_{0}(X)\) but, from the perspective of the second layer, the output of layer one is just some new distribution of inputs.  So, the game is to figure out what the effective distribution of inputs is for the second, third and fourth layer and so on.  What we are actually after is some kind of differential equation that tells us how the effective distribution on \(X\) evolves as we move down the network.  </p>
 
-<p>Let's consider the effect in going from layer \(n\) to layer \(n+1\).  We have an integral like </p>
+<p>Let's consider the effect in going from layer \(n\) to layer \(n+1\).  First, suppose that the effective distribution at the \(n'th\) layer is \(P_{n}(\mathbf{X}_{n})\).  Let's also include a regulator term \(R(\mathbf{W})\) at this stage for reasons that will soon be clear.  We can modify our previous integral as follows: </p>
+
+$$
+P_{cg}\left(\vec{W}\right) \sim \int \mathcal{D}\mathbf{W}_{>n+1}\mathcal{D}\mathbf{W}_{n+1}\int \mathcal{D}\mathbf{X}_{n}\int\mathcal{D}\mathbf{X}_{n+1}\delta\left(\mathbf{X}_{n+1}-\sigma(\mathbf{W}\circ)\mathbf{X}_{n}\right)\delta\left(\langle\mathbf{W}_{>n+1}\rangle_{L}-\vec{W}_{>n+1}\right)
+$$
+
+
 
 $$
 P^{n+1}_{cg}\left(\mathbf{W}^{i}_{i>n} \right) \equiv \int d\mathbf{W}^{n} P^{n}_{cg}\left(\mathbf{W}_{i\ge n}\right) \\
