@@ -99,13 +99,27 @@ $$
 P_{n+1}\left(\mathbf{X}_{n+1}\right)=\left(\frac{\pi}{\alpha_{n+1}}\right)^{\left(\frac{N_{n}}{2}\right)^{d}}\prod_{i}^{\left(\frac{N_{n}}{k}\right)^{d}}\int \mathcal{D} \mathbf{X}_{n,i}\prod_{j} p(X_{n,i}^{j})\frac{e^{-\alpha_{n+1} w_{i}^{2}}}{|\mathbf{X}|\sigma'(\sigma^{-1}(X^{i}_{n+1}))}
 $$
 
-<p> where \(w_{i}\) is defined by \( \sigma(|\mathbf{X}|w)= X^{i}_{n+1}\). Using the factorization condition also on the LHS of the equation above, we reach:</p>
+<p> where \(w_{i}\) is defined by \( \sigma(|\mathbf{X}|w_{i})= X^{i}_{n+1}\). Using the factorization condition also on the LHS of the equation above, we reach:</p>
 
 $$
 p(X_{n+1}^{i}) = \left(\frac{\pi}{\alpha_{n+1}}\right)^{\left(\frac{k}{2}\right)^{d}} \prod_{j}\int dX^{j} p(X^{j})\times \frac{e^{-\alpha_{n+1} w_{i}^{2}}}{|\mathbf{X}|\sigma'(\sigma^{-1}(X^{i}_{n+1}))}
 $$
 
-<p> To make more progress it would be nice to have a small parameter to work with.  We have declared \(1/k=1/s\) to be small, but it is not clear how it helps at this stage.  The next thing to consider is \(\alpha_{n+1}\), which we coule take to be either very large (low T) or very small (high T).  Roughly speaking, \(\alpha \sim X^{2}\) </p>
+<p> To make more progress it would be nice to have a small parameter to work with.  We have declared \(1/k=1/s\) to be small, but it is not clear how it helps at this stage.  The next thing to consider is \(\alpha_{n+1}\), which we coule take to be either very large (low T) or very small (high T).  Roughly speaking, \(\alpha \sim X^{2}\). Note that although we do not expect any rotational symmetry among the \(X^{j}\) in the factor \(\prod_{j} p(X^{j})\), the non-rotationally invariant terms are killed by the integration.  Thus, for the purpose of evaluating this integral, this product may be replaced by a function of \(r\equiv |\mathbf{X}|\).  We thus replace \(\prod_{j} p(X^{j}) \rightarrow \rho(r)\). After evaluating the integral, we can then take the rotationally symmetric piece of the result in the next layer and check for self-consistency. We are left with</p>
+
+$$
+p(X^{i}_{n+1})=\frac{\Omega_{k^{d}-1}}{\sigma'\left(\sigma^{-1}(X^{i}_{n+1})\right)}\left(\frac{\pi}{\alpha_{n+1}}\right)^{\left(\frac{k}{2}\right)^{d}} \int dr\, r^{k^{d}-2} \rho(r) e^{-\alpha_{n+1} w_{i}^{2}}
+$$
+
+<p>Let's try and figure out the limiting behaviors.   First, suppose that \(\sigma\) is linear in \(X^{i}\) at small \(X^{i}\).  In this case, we may study the small \(X^{i}\) behavior.  Rescale the integral using \(r=z\sqrt{\alpha_{n+1}}\sigma^{-1}(X^{i})\) and assume that for small \(X^{i}\) the function \(p(X^{i})\) goes like \((X^{i})^{\eta} p_{0}(X^{i})\), implying that \(\rho(r) \sim r^{\eta k^{d}}\). Working out the condition for self-consistency of the scaling in the small \(X^{i}\) limit, we get:</p>
+
+$$
+(2-k^{d})\left(1+\eta\right)=0
+$$
+
+<p>This is only satisfied for 1) a linear lattice with \(k=2\) or 2) \(\eta = -1\).  The latter situation leads to a non-normalizable distribution near small \(X\).  This implies that there is actually no stable distribution, rather, it seems like the evolution to deeper layers in the network drive the \(X\) distribution to more and more sharply peaked around zero.  The same conclusion follows if we take \(\sigma(X) \sim X^{\delta}\) near \(X=0\) for any \(\delta\). </p>
+
+<p> In the next post we'll take a look at the case of nearly overlapping kernels. </p>
 
 <p id="note1"><a href="#return_note1">[1]</a> I trust the interested reader can figure out where all the indices go.</p>
 
