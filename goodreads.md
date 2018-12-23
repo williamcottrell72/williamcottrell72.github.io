@@ -64,3 +64,5 @@ nav-menu: true
 [Other Blogs](https://calculatedcontent.com/2015/03/25/why-does-deep-learning-work/)
 
 [Algorithms](https://github.com/keon/algorithms)
+
+[Data Structures](http://interactivepython.org/runestone/static/pythonds/index.html)
