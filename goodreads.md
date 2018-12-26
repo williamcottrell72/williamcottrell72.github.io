@@ -66,3 +66,7 @@ nav-menu: true
 [Algorithms](https://github.com/keon/algorithms)
 
 [Data Structures](http://interactivepython.org/runestone/static/pythonds/index.html)
+
+<h2> <font color="black"> Datasets </font> </h2>
+
+[Datasets](https://www.tableau.com/learn/articles/free-public-data-sets)
